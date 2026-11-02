@@ -480,8 +480,7 @@ const calc = (k, f) => k === 'face' ? f[0] : k === 'sum' ? f.reduce((a, b) => a 
 function outcomes(d) { let r = [[]]; for (let i = 0; i < d; i++) { const nx = []; for (const x of r) for (let v = 1; v <= 6; v++) nx.push([...x, v]); r = nx; } return r; }
 const VCACHE = {};
 const possible = (d, k) => VCACHE[d + k] || (VCACHE[d + k] = [...new Set(outcomes(d).map(f => calc(k, f)))].sort((a, b) => a - b));
-// 학생이 고르는 숫자: 합은 1부터 (2개면 1~12) — 나올 수 없는 수도 고를 수 있게
-const choices = (d, k) => k === 'sum' ? Array.from({ length: 6 * d }, (_, i) => i + 1) : possible(d, k);
+const choices = (d, k) => possible(d, k);   // 학생은 나올 수 있는 값만 고름 (합이면 2~12)
 // 100번·1000번: 학생은 '가장 많이 나올 숫자' 하나만 예상 (최빈값을 맞히면 코인)
 const isBig = r => r && r.n >= 100;
 const slotsN = r => (isBig(r) ? 1 : r.n);
