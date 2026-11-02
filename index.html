@@ -77,7 +77,7 @@ h1,h2,h3{font-weight:800;line-height:1.25}
 .S-q .dz{display:flex;justify-content:center;gap:8px;margin-bottom:8px}
 .S-q .dz .sd{width:40px;height:40px}
 .S-q h2{font-family:var(--fd);font-weight:400;font-size:28px;line-height:1.15}
-.S .bars{height:150px}
+.S .bars{height:190px}
 .S-q p{color:var(--muted);font-size:14px;margin-top:6px}
 .slots{display:grid;gap:8px;margin:4px 0 14px}
 .slots.n1{grid-template-columns:1fr;justify-items:center}
@@ -186,12 +186,12 @@ h1,h2,h3{font-weight:800;line-height:1.25}
 @keyframes hop{from{transform:translateY(0) rotate(-4deg)}to{transform:translateY(-24%) rotate(5deg)}}
 .pgrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1em 1.2em;margin-top:.6em}
 .pgrid.n1{grid-template-columns:minmax(0,1fr)} .pgrid.n3{grid-template-columns:repeat(3,minmax(0,1fr))}
-.pgrid .bars{height:clamp(100px,13vh,190px);gap:.12em;border-bottom-width:2px}
-.pgrid.n1 .bars{height:clamp(140px,22vh,280px);gap:.3em;border-bottom-width:3px}
+.pgrid .bars{height:clamp(130px,17vh,230px);gap:.1em;border-bottom-width:2px}
+.pgrid.n1 .bars{height:clamp(170px,26vh,320px);gap:.3em;border-bottom-width:3px}
 .pgrid .ch h4{font-size:.78em;margin-bottom:.2em}
 .pgrid .ch h4 small b{color:var(--ok);font-size:1.25em}
-.pgrid:not(.n1) .bc b{font-size:.55em}
-.pgrid:not(.n1) .bw em{font-size:.6em}
+.pgrid:not(.n1) .bc b{font-size:.68em}
+.pgrid:not(.n1) .bw em{font-size:.72em}
 .bc.hot b{background:var(--ok);color:#fff;border-radius:5px;padding:0 .2em}
 .peek{margin-top:1em}
 .rollmsg{text-align:center;font-weight:900;font-size:20px;padding:14px;margin-bottom:12px;background:var(--ink);color:#fff;border-radius:16px}
@@ -243,14 +243,22 @@ h1,h2,h3{font-weight:800;line-height:1.25}
 .two-ch{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.4em;margin-top:1.2em}
 .ch h4{font-size:.95em;margin-bottom:.5em;display:flex;justify-content:space-between;gap:.5em}
 .ch h4 small{color:var(--muted);font-weight:700}
-.bars{display:flex;align-items:flex-end;gap:.3em;height:clamp(120px,20vh,260px);border-bottom:3px solid var(--ink);padding-top:1.4em}
+.bars{display:flex;align-items:flex-end;gap:.2em;height:clamp(160px,26vh,320px);border-bottom:3px solid var(--ink);padding:2.6em .45em 0;
+  background:repeating-linear-gradient(to top,transparent 0 calc(25% - 1px),rgba(28,33,66,.07) calc(25% - 1px) 25%) 0 0/100% calc(100% - 1.6em) no-repeat;background-position:top}
 .bc{flex:1;display:flex;flex-direction:column;align-items:center;height:100%;min-width:0}
 .bw{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center}
-.bw i{display:block;width:78%;max-width:3em;min-width:5px;background:#9AA6C9;border-radius:6px 6px 0 0;position:relative;transition:height .5s;box-shadow:inset 0 -6px 0 rgba(0,0,0,.12)}
+.bw i{display:block;width:90%;max-width:4.4em;min-width:6px;background:#9AA6C9;border-radius:6px 6px 0 0;position:relative;transition:height .5s;box-shadow:inset 0 -6px 0 rgba(0,0,0,.12)}
 .bc.hot .bw i{outline:3px solid var(--ink);outline-offset:1px}
 .bc.hot .bw i[style^="height:0%"]{outline:none}
-.bw em{position:absolute;top:-1.35em;left:50%;transform:translateX(-50%);font-style:normal;font-weight:900;font-size:.85em}
-.bc b{font-weight:900;font-size:.95em;margin-top:.15em}
+.bw em{position:absolute;top:auto;bottom:calc(100% + 2px);line-height:1;left:50%;transform:translateX(-50%);font-style:normal;font-weight:900;font-size:1em;white-space:nowrap}
+/* 가장 많은 막대는 진하게+왕관, 나머지는 살짝 옅게 → 한눈에 '어디가 제일 많은지' */
+.bars.hasTop .bc:not(.top) .bw i{opacity:.55}
+.bc.top .bw i{box-shadow:inset 0 -6px 0 rgba(0,0,0,.15),0 4px 12px rgba(0,0,0,.18)}
+.bc.top .bw em{top:auto;bottom:calc(100% + 2px);font-size:1.1em;line-height:1.05;color:var(--ink);text-align:center}
+.bc.top .bw em::before{content:'👑';display:block;font-size:.62em;line-height:1}
+.bw i[style^="height:0%"]{height:3px!important;opacity:.25!important;box-shadow:none}
+.bc b{font-weight:900;font-size:1.05em;margin-top:.2em}
+.bc.top b{text-decoration:underline 3px;text-underline-offset:3px}
 .bars.many .bc b{font-size:.6em}
 .bars.many .bw em{font-size:.6em}
 .tops{display:flex;flex-wrap:wrap;gap:.5em;margin-top:.8em}
@@ -799,8 +807,10 @@ const barColor = v => BAR_COLORS[((Math.round(v) % BAR_COLORS.length) + BAR_COLO
 function barsHTML(vals, cnt, o = {}) {
   const mx = Math.max(1, ...vals.map(v => cnt[v] || 0));
   const hot = v => o.hot != null && (Array.isArray(o.hot) ? o.hot.includes(v) : o.hot === v);
-  return `<div class="bars ${o.cls || ''} ${vals.length > 16 ? 'many' : ''}">${vals.map(v => { const c = cnt[v] || 0;
-    return `<div class="bc ${hot(v) ? 'hot' : ''}"><div class="bw"><i style="height:${c / mx * 100}%;background:${barColor(v)}">${c ? `<em>${c}</em>` : ''}</i></div><b>${v}</b></div>`; }).join('')}</div>`;
+  const real = Math.max(0, ...vals.map(v => cnt[v] || 0)); const tops = vals.filter(v => real > 0 && (cnt[v] || 0) === real);
+  const hasTop = real > 0 && tops.length < vals.filter(v => cnt[v]).length;   // 모두 같으면 강조하지 않음
+  return `<div class="bars ${o.cls || ''} ${vals.length > 16 ? 'many' : ''} ${hasTop ? 'hasTop' : ''}">${vals.map(v => { const c = cnt[v] || 0;
+    return `<div class="bc ${hot(v) ? 'hot' : ''} ${hasTop && tops.includes(v) ? 'top' : ''}"><div class="bw"><i style="height:${c / mx * 100}%;background:${barColor(v)}">${c ? `<em>${c}</em>` : ''}</i></div><b>${v}</b></div>`; }).join('')}</div>`;
 }
 
 // 학생 예상 막대그래프: 시도 횟수만큼 (몇 번째 칸에 어떤 숫자를 많이 골랐는지). 결과가 나오면 그 숫자를 초록으로
