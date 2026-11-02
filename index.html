@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-<title>주사위 맞추기</title>
+<title>주사위 눈 맞추기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" media="print" onload="this.media='all'">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -227,6 +227,13 @@ h1,h2,h3{font-weight:800;line-height:1.25}
 .tabs button.on{background:#fff;color:var(--ink);box-shadow:0 2px 6px rgba(28,33,66,.12)}
 .man{display:flex;flex-wrap:wrap;gap:.4em}
 .man button{min-width:2.6em;background:#fff;border:2px solid var(--line);border-radius:12px;padding:.3em .5em;font-family:var(--fd);font-size:1.5em;line-height:1.2;box-shadow:0 3px 0 rgba(28,33,66,.08)}
+.manrow{display:flex;align-items:center;gap:.8em;margin:.35em 0;flex-wrap:wrap}
+.manrow>span{font-weight:900;min-width:4.6em}
+.cA{color:var(--A)} .cB{color:var(--B)} .cC{color:var(--C)}
+.man button.mf{padding:.2em;min-width:0;line-height:0}
+.mf .sd{width:2.3em;height:2.3em}
+.man button.mf.on{border-color:var(--ink);background:var(--hi2);box-shadow:0 0 0 3px var(--hi)}
+.manpre{font-weight:900;font-size:1.2em;margin-top:.4em;display:flex;align-items:center;gap:.6em}
 .man input{width:6em;border:2px solid var(--line);border-radius:12px;padding:.4em .6em;font-size:1.1em}
 .strip{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:.45em}
 .strip.n1{grid-template-columns:minmax(0,9em)}
@@ -360,7 +367,7 @@ h1,h2,h3{font-weight:800;line-height:1.25}
 <div id="overlay"></div>
 <script>
 /* =====================================================================
-   주사위 맞추기
+   주사위 눈 맞추기
    - 선생님이 방을 만들고, 학생은 휴대폰으로 QR을 찍어 입장
    - 라운드마다 선생님이 주사위 개수(1~3개)·맞힐 것(눈/합/차/곱/큰 눈)·시도 횟수를 정함
    - 학생은 시도 횟수만큼 숫자를 예상해서 제출, 결과와 같은 칸마다 코인
@@ -512,7 +519,7 @@ const diceIcons = (d, vals) => Array.from({ length: d }, (_, i) => dieSVG(vals ?
 let S = {};
 const App = { mode: null, code: null, pid: null, hostId: null, unsub: [], timers: [], active: false, ov: null, ovShown: null,
   draft: null, draftK: null, cur: 0, lastPick: null, loadedGuess: false, gk: null, gUnsub: null,
-  rolling: false, auto: false, rmode: 'sim', manVal: '', cum: false, botDone: {},
+  rolling: false, auto: false, rmode: 'sim', manVal: '', manF: [], cum: false, botDone: {},
   tbl: { op: 'sum', t: 7, pairs: true, bars: false },
   setup: (() => { try { return Object.assign({ d: 1, kind: 'face', n: 1, coin: 1 }, JSON.parse(lstore.getItem('dice_setup') || '{}')); } catch (e) { return { d: 1, kind: 'face', n: 1, coin: 1 }; } })() };
 const roomPath = (p = '') => `rooms/${App.code}` + (p ? '/' + p : '');
@@ -541,7 +548,7 @@ function renderEntry(o = {}) {
   $('#app').innerHTML = `
   <div class="E">
     <div class="E-hero"><div class="E-logo">${dieSVG(5, 'A')}${dieSVG(2, 'B')}</div>
-      <h1 class="E-title">주사위 맞추기</h1>
+      <h1 class="E-title">주사위 눈 맞추기</h1>
       <p>주사위 결과를 예상해서 코인을 모아요. 코인을 가장 많이 모은 친구가 우승!</p></div>
     <section class="E-card">
       <label>방 번호<input id="inCode" inputmode="numeric" maxlength="4" autocomplete="off" value="${esc(room)}" placeholder="선생님 화면의 4자리"></label>
@@ -707,7 +714,7 @@ function renderTeacher() {
 function headHTML(extra = '') {
   const m = S.meta; const n = Object.keys(S.players || {}).length;
   return `<header class="T-head">
-    <div class="T-brand">${dieSVG(5, 'A')}${dieSVG(2, 'B')}<h1 class="T-title">주사위 맞추기</h1>
+    <div class="T-brand">${dieSVG(5, 'A')}${dieSVG(2, 'B')}<h1 class="T-title">주사위 눈 맞추기</h1>
       <span class="T-room">방 ${esc(App.code)} · ${n}명</span></div>
     <div class="T-btns">${extra}
       ${m.phase !== 'lobby' ? '<button data-a="ov" data-v="qr">📱 입장 QR</button>' : ''}
@@ -849,12 +856,12 @@ function rollHTML(r) {
         ? `<div class="row"><button class="btn big" data-a="roll1" ${App.rolling || App.auto ? 'disabled' : ''}>🎲 한 번 던지기</button>
             ${left > 1 ? `<button class="btn" data-a="rollauto" ${App.rolling && !App.auto ? 'disabled' : ''}>${App.auto ? '⏸ 멈추기' : '▶ 하나씩 자동으로'}</button>
             <button class="btn ghost" data-a="rollall" ${App.rolling || App.auto ? 'disabled' : ''}>⏩ 남은 ${left}번 한 번에</button>` : ''}</div>`
-        : `<div><p class="muted" style="margin-bottom:.4em">교실에서 던진 결과(${esc(kindLabel(r.d, r.kind))})를 누르면 ${res.length + 1}번째 결과로 들어가요.</p>
-            <div class="man">${vals.map(v => `<button data-a="man" data-v="${v}">${v}</button>`).join('')}
-            <input id="manIn" inputmode="numeric" placeholder="숫자 + Enter" value="${esc(App.manVal)}"></div></div>`}
+        : `<div><p class="muted" style="margin-bottom:.4em">교실에서 던진 주사위의 눈을 ${r.d > 1 ? '주사위마다 ' : ''}눌러 주세요. ${res.length + 1}번째 결과로 들어가요.</p>
+            ${Array.from({ length: r.d }, (_, j) => `<div class="manrow"><span class="c${DCOL[j]}">주사위 ${DCOL[j]}</span><div class="man">${[1, 2, 3, 4, 5, 6].map(v => `<button class="mf ${App.manF[j] === v ? 'on' : ''}" data-a="manf" data-j="${j}" data-v="${v}" aria-label="${v}">${dieSVG(v, DCOL[j])}</button>`).join('')}</div></div>`).join('')}
+            ${r.d > 1 && App.manF.some(x => x) ? `<p class="manpre">고른 눈: ${Array.from({ length: r.d }, (_, j) => App.manF[j] || '?').join(r.kind === 'sum' ? ' + ' : r.kind === 'prod' ? ' × ' : ', ')} <button class="toggle" data-a="manclear">다시 고르기</button></p>` : ''}</div>`}
       ${res.length ? '<div class="row"><button class="toggle" data-a="dellast">↩ 마지막 결과 지우기</button></div>' : ''}`;
   return `${qTitleHTML(r)}
-    <div class="stage-wrap ${App.rmode === 'man' && left > 0 ? 'man' : ''}"><div id="stage" class="stage" data-k="${r.k}-${r.d}" data-d="${r.d}"></div>
+    <div class="stage-wrap"><div id="stage" class="stage" data-k="${r.k}-${r.d}" data-d="${r.d}"></div>
       <div class="readout" id="readout">${read}${sub}</div></div>
     <div class="ctrl" style="margin:1em 0">${ctrl}</div>
     ${stripHTML(r)}
@@ -1059,7 +1066,7 @@ async function tumbleTo(f, ms) {
 async function openRound() {
   if (!App.active) return;
   const s = App.setup; const k = (S.meta.roundNo || 0) + 1;
-  App.rmode = App.rmode || 'sim'; App.manVal = ''; App.cum = false;
+  App.rmode = App.rmode || 'sim'; App.manVal = ''; App.manF = []; App.cum = false;
   await DB.update(roomPath(), { 'meta/roundNo': k, 'meta/phase': 'play', round: { k, d: s.d, kind: s.kind, n: s.n, coin: s.coin, state: 'open', at: DB.now() } });
 }
 async function pushResults(list) {
@@ -1335,6 +1342,17 @@ async function onAction(a, el) {
   if (a === 'rollbig') return rollBig();
   if (a === 'rollauto') return rollAuto();
   if (a === 'man') return manualPush(v);
+  if (a === 'manclear') { App.manF = []; return rerender(); }
+  if (a === 'manf' && r && r.state === 'closed') {
+    App.manF[+el.dataset.j] = +v;
+    const f = Array.from({ length: r.d }, (_, j) => App.manF[j]);
+    if (f.every(x => x)) {   // 모든 주사위 눈을 골랐으면 결과로 넣고, 무대의 주사위도 그 눈으로 돌려 놓기
+      App.manF = [];
+      document.querySelectorAll('#stage .die').forEach((d, i) => { d.classList.remove('tumbling'); d.classList.add('settle'); setDie(d, f[i], true); });
+      return pushResults([{ v: calc(r.kind, f), f }]);
+    }
+    return rerender();
+  }
   if (a === 'dellast' && r && r.state !== 'done' && !isBig(r)) { const res = arr(r.res); if (res.length) return DB.update(roomPath('round'), { res: res.slice(0, -1) }); return; }
   if (a === 'score') return scoreRound();
   if (a === 'undo') return undoScore();
