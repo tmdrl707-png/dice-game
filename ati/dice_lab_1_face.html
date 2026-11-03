@@ -81,6 +81,7 @@ h2{font-size:20px;font-weight:900;margin-bottom:4px}
    - 학생 응답은 ATI 응답 규약(parent.postMessage 'ati:response')으로만 저장합니다.
    - MODE: 'face'(주사위 1개의 눈) / 'sum'(주사위 2개의 합) / 'table'(36칸 표)            */
 const MODE = 'face';
+const ROLLS = [1, 5, 10];   // 이 활동에서 쓸 던지기 버튼
 
 const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
 const ORIENT = { 1: [0, 0], 6: [0, 180], 3: [0, -90], 4: [0, 90], 2: [-90, 0], 5: [90, 0] };
@@ -108,11 +109,11 @@ function save() {
   else {
     const top = modes(); value = `내 예상 ${st.pick ?? '-'} · ${st.total}번 던짐 · 가장 많이 나온 값 ${top.join(', ') || '-'} · 예상과 같은 결과 ${hitsNow()}번`;
   }
-  try { parent.postMessage({ type: 'ati:response', state: { value, pick: st.pick, total: st.total, hits: hitsNow(), counts: st.counts, tbl: st.tbl } }, '*'); } catch (e) {}
+  try { parent.postMessage({ type: 'ati:response', state: { value, canvasState: { pick: st.pick, total: st.total, hits: hitsNow(), counts: st.counts, tbl: st.tbl } } }, '*'); } catch (e) {}
 }
 addEventListener('message', ev => {
   if (ev.source !== parent || !ev.data || ev.data.type !== 'ati:init') return;
-  const s = ev.data.state || {};
+  const s0 = ev.data.state || {}; const s = s0.canvasState || s0;
   if (s.counts && typeof s.counts === 'object') st.counts = s.counts;
   if (typeof s.total === 'number') st.total = s.total;
   if (s.pick != null) st.pick = s.pick;
@@ -139,7 +140,7 @@ function labHTML() {
     <div class="stage" id="stage"></div>
     <div class="readout" id="readout">${rolling ? '🎲 …' : lastTxt}<small>${st.total ? `지금까지 ${st.total}번 던졌어요` : '아직 던지지 않았어요'}</small></div>
     <div class="sec act"><div class="lbl">② 던지기 ${st.pick == null ? '(먼저 예상을 골라 주세요)' : ''}</div>
-      <div class="row">${[1, 10, 100, 1000].map(n => `<button class="btn" data-a="roll" data-v="${n}" ${st.pick == null || rolling ? 'disabled' : ''}>${n}번 던지기</button>`).join('')}
+      <div class="row">${ROLLS.map(n => `<button class="btn" data-a="roll" data-v="${n}" ${st.pick == null || rolling ? 'disabled' : ''}>${n}번 던지기</button>`).join('')}
         <button class="btn ghost" data-a="reset" ${rolling || !st.total ? 'disabled' : ''}>처음부터</button></div></div>
     <div class="stat"><div>던진 횟수 <b>${st.total}</b>번</div>
       <div class="${hits ? 'good' : ''}">내 예상(${st.pick ?? '-'})과 같은 결과 <b>${hits}</b>번${st.total ? ` (${pct}%)` : ''}</div>
