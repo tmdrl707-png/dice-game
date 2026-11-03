@@ -130,7 +130,13 @@ h1,h2,h3{font-weight:800;line-height:1.25}
 .T-btns button{background:#fff;border:2px solid var(--line);border-radius:12px;padding:.45em .9em;font-weight:800;font-size:.9em}
 .T-btns button.warn{border-color:#F3C2CB;color:var(--no)}
 .T-main{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(0,1fr);gap:1.6vw;min-height:0}
-.panel{background:var(--card);border-radius:24px;padding:2.2vh 1.6vw;box-shadow:0 8px 30px rgba(28,33,66,.08);min-width:0;min-height:0;overflow:auto}
+.panel{background:var(--card);border-radius:24px;padding:2.2vh 1.6vw;box-shadow:0 8px 30px rgba(28,33,66,.08);min-width:0;min-height:0}
+/* 전자칠판: 페이지 전체가 한 번에 스크롤되도록 (패널 안쪽 스크롤 없음) + 손가락 세로 스크롤 허용 */
+html,body{height:auto;overflow-y:auto;touch-action:pan-y pinch-zoom;overscroll-behavior-y:auto}
+#scrollbtns{position:fixed;right:18px;bottom:18px;z-index:65;display:none;flex-direction:column;gap:10px}
+body.tv #scrollbtns{display:flex}
+#scrollbtns button{width:72px;height:72px;border-radius:50%;background:var(--ink);color:#fff;font-size:30px;font-weight:900;box-shadow:0 6px 18px rgba(0,0,0,.3);opacity:.85}
+#scrollbtns button:active{transform:scale(.94)}
 .panel h3{font-size:1.05em;color:var(--muted);margin-bottom:.6em}
 .q-title{display:flex;align-items:center;gap:.6em;flex-wrap:wrap}
 .q-title .dz{display:flex;gap:.3em}
@@ -275,7 +281,7 @@ h1,h2,h3{font-weight:800;line-height:1.25}
 
 /* 순위 */
 .board{list-style:none;display:grid;gap:.3em}
-.board.two{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:.8em}
+.board.two{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-flow:column;column-gap:.8em}
 .board li{display:grid;grid-template-columns:1.9em minmax(0,1fr) auto auto;align-items:center;gap:.45em;padding:.3em .5em;border-radius:12px;background:var(--card2)}
 .board .rk{font-family:var(--fd);text-align:center}
 .board .nm{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -363,6 +369,7 @@ h1,h2,h3{font-weight:800;line-height:1.25}
 <div id="net" role="status">⚠️ 연결이 끊겼어요. 다시 연결하는 중…</div>
 <div id="app"></div>
 <div id="overlay"></div>
+<div id="scrollbtns"><button data-a="scrollup" aria-label="위로">▲</button><button data-a="scrolldown" aria-label="아래로">▼</button></div>
 <script>
 /* =====================================================================
    주사위 눈 맞추기
@@ -532,7 +539,7 @@ const scoreOf = (r, g, res) => isBig(r) ? (modesOf(res).includes(arr(g)[0]) ? 1 
    입장 화면
    ===================================================================== */
 function renderEntry(o = {}) {
-  App.mode = null;
+  App.mode = null; document.body.classList.remove('tv');
   const room = o.room || '';
   let host = null; try { host = JSON.parse(store.getItem(HOST_KEY) || 'null'); } catch (e) {}
   $('#app').innerHTML = `
@@ -687,6 +694,7 @@ function hostOnData() {
 }
 
 function renderTeacher() {
+  document.body.classList.add('tv');
   const m = S.meta; const app = $('#app');
   if (!m) { app.innerHTML = '<div class="E"><p>방을 불러오는 중이에요…</p></div>'; return; }
   const keep = document.getElementById('stage');
@@ -753,7 +761,7 @@ function boardHTML(lim) {
   let rk = ranking(); if (!rk.length) return '<p class="muted">아직 아무도 없어요.</p>';
   if (lim) rk = rk.filter(x => x.rank <= lim);
   const r = S.round; const h = !lim && r && r.state === 'done' && S.hist && S.hist[r.k];
-  return `<ol class="board ${lim ? 'big' : rk.length > 14 ? 'two' : ''}">${rk.map(x => {
+  return `<ol class="board ${lim ? 'big' : rk.length > 14 ? 'two' : ''}" ${!lim && rk.length > 14 ? `style="grid-template-rows:repeat(${Math.ceil(rk.length / 2)},auto)"` : ''}>${rk.map(x => {
     const g = h && h.hits && h.hits[x.id] ? h.hits[x.id] * h.coin : 0;
     return `<li class="${x.rank <= 3 && x.c > 0 ? 'top' + x.rank : ''}" data-a="stu" data-id="${x.id}"><span class="rk">${x.rank}</span><span class="nm">${esc(P(x.id).name)}</span>
       <span class="up">${g ? '+' + g : ''}</span><span class="cn">${x.c}</span></li>`; }).join('')}</ol>`;
@@ -1170,6 +1178,7 @@ function ensureDraft(r) {
 }
 function renderStudent() {
   if (App.mode !== 'student') return;
+  document.body.classList.remove('tv');
   if (!S._ready || !S._ready.meta || !S._ready.players) { $('#app').innerHTML = '<div class="E"><p>불러오는 중이에요…</p></div>'; return; }
   if (!S.meta) { store.removeItem(PID_KEY(App.code)); leaveRoom(); return renderEntry({ msg: '방이 사라졌어요.' }); }
   if (!S.players || !S.players[App.pid]) { const c = App.code; store.removeItem(PID_KEY(c)); leaveRoom(); return renderEntry({ room: c, msg: '방에서 나가졌어요. 다시 입장해 주세요.' }); }
@@ -1289,6 +1298,8 @@ async function onAction(a, el) {
     return;
   }
   if (App.mode !== 'teacher') return;
+  if (a === 'scrollup') return window.scrollBy({ top: -Math.round(innerHeight * .7), behavior: 'smooth' });
+  if (a === 'scrolldown') return window.scrollBy({ top: Math.round(innerHeight * .7), behavior: 'smooth' });
   if (a === 'takeover') return DB.update(roomPath('meta'), { hostId: App.hostId });
   if (a === 'exit') { leaveRoom(); return renderEntry(); }
   if (a === 'stu') { App.ov = 'stu'; App.stuId = id; return renderOverlay(true); }
@@ -1324,7 +1335,7 @@ async function onAction(a, el) {
   if (a === 'openround') return openRound();
   // 라운드 진행
   const r = S.round;
-  if (a === 'close' && r) return DB.update(roomPath('round'), { state: 'closed' });
+  if (a === 'close' && r) { const sub = Object.keys(guessesOf(r.k)).length; if (!sub && !confirm('아직 아무도 제출하지 않았어요. 그래도 마감할까요?\n(마감하면 학생은 답을 낼 수 없어요)')) return; return DB.update(roomPath('round'), { state: 'closed' }); }
   if (a === 'cancelround' && r) { if (confirm('이 라운드를 취소할까요? 학생들이 낸 답도 지워져요.')) return DB.update(roomPath(), { round: null, ['guess/' + r.k]: null }); return; }
   if (a === 'rmode') { App.rmode = v; return rerender(); }
   if (a === 'roll1') return rollOne();
