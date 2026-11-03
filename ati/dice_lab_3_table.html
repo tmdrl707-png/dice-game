@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>주사위 눈 맞추기 탐구</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--ink:#1C2142;--muted:#6A6E8C;--line:rgba(28,33,66,.13);--card2:#F6F1E6;--hi:#F4C24D;--hi2:#FFE7A0;--A:#E5484D;--B:#2F6FED;--ok:#17A15A;--felt:#1E7A55;--felt2:#155C40}
+body{font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;color:var(--ink);background:#fff;line-height:1.45;word-break:keep-all;padding:12px;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
+button:disabled{opacity:.4;cursor:default}
+h2{font-size:20px;font-weight:900;margin-bottom:4px}
+.sub{color:var(--muted);font-size:14px;margin-bottom:10px}
+.sec{margin:12px 0}
+.lbl{font-weight:800;font-size:14px;color:var(--muted);margin-bottom:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{min-width:44px;padding:8px 10px;border:2px solid var(--line);border-radius:12px;font-size:20px;font-weight:900;background:#fff;box-shadow:0 2px 0 rgba(28,33,66,.08)}
+.chips button.on{background:var(--hi2);border-color:var(--hi)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{background:var(--hi);font-weight:900;border-radius:14px;padding:11px 16px;font-size:16px;box-shadow:0 3px 0 rgba(28,33,66,.18)}
+.btn.ghost{background:var(--card2);box-shadow:none}
+.stage{background:radial-gradient(ellipse at 50% 35%,#2A9468 0%,var(--felt) 55%,var(--felt2) 100%);border-radius:18px;display:flex;align-items:center;justify-content:center;gap:36px;padding:22px 10px;perspective:800px;min-height:150px}
+.die{--s:84px;width:var(--s);height:var(--s);position:relative;transform-style:preserve-3d;transition:transform .4s cubic-bezier(.2,.9,.3,1.15)}
+.die.tumbling{transition:transform .12s linear}
+.face{position:absolute;inset:0;border-radius:18%;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);padding:14%;backface-visibility:hidden;box-shadow:inset 0 0 0 2px rgba(0,0,0,.12),inset 0 -6px 12px rgba(0,0,0,.18)}
+.face i{display:block;width:72%;height:72%;border-radius:50%;align-self:center;justify-self:center;visibility:hidden;background:#fff}
+.face i.p{visibility:visible}
+.die.cA .face{background:var(--A)} .die.cB .face{background:var(--B)}
+.f1{transform:translateZ(42px)} .f6{transform:rotateY(180deg) translateZ(42px)} .f3{transform:rotateY(90deg) translateZ(42px)}
+.f4{transform:rotateY(-90deg) translateZ(42px)} .f2{transform:rotateX(90deg) translateZ(42px)} .f5{transform:rotateX(-90deg) translateZ(42px)}
+.readout{text-align:center;font-size:26px;font-weight:900;margin-top:8px;min-height:36px}
+.readout small{display:block;font-size:13px;color:var(--muted);font-weight:700}
+.stat{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.stat div{background:var(--card2);border-radius:12px;padding:6px 12px;font-weight:800;font-size:14px}
+.stat b{font-size:20px}
+.stat .good{background:#DDF6E7;color:#0E6B3A}
+/* 막대그래프 */
+.bars{display:flex;align-items:flex-end;gap:3px;height:200px;border-bottom:3px solid var(--ink);padding:40px 4px 0;
+  background:repeating-linear-gradient(to top,transparent 0 calc(25% - 1px),rgba(28,33,66,.07) calc(25% - 1px) 25%) 0 0/100% calc(100% - 26px) no-repeat}
+.bc{flex:1;display:flex;flex-direction:column;align-items:center;height:100%;min-width:0}
+.bw{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center}
+.bw i{display:block;width:88%;max-width:52px;min-width:6px;border-radius:6px 6px 0 0;position:relative;transition:height .35s;box-shadow:inset 0 -5px 0 rgba(0,0,0,.12)}
+.bw em{position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);font-style:normal;font-weight:900;font-size:13px;line-height:1;white-space:nowrap;text-align:center}
+.bars.hasTop .bc:not(.top) .bw i{opacity:.5}
+.bc.top .bw em{font-size:16px}
+.bc.top .bw em::before{content:'👑';display:block;font-size:12px}
+.bw i.zero{height:3px!important;opacity:.25!important}
+.bc b{font-weight:900;font-size:15px;margin-top:3px}
+.bc.mine b{background:var(--ink);color:#fff;border-radius:6px;padding:0 4px}
+.legend{font-size:12px;color:var(--muted);margin-top:4px}
+/* 36칸 표 */
+.tb-wrap{display:grid;grid-template-columns:auto minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:640px){.tb-wrap{grid-template-columns:1fr}}
+.tb{border-collapse:separate;border-spacing:3px}
+.tb td,.tb th{width:46px;height:46px;text-align:center;border-radius:9px}
+.tb th svg{width:30px;height:30px}
+.tb th.corner{font-size:12px;font-weight:900;line-height:1.1}
+.tb td{background:#F4F5FA;border:2px solid #E3E6F0;transition:opacity .25s,background .25s;cursor:pointer}
+.tb td b{display:block;font-size:18px;font-weight:900;line-height:1}
+.tb td small{display:block;font-size:9px;font-weight:800;color:var(--muted)}
+.ca{color:var(--A);font-style:normal} .cb{color:var(--B);font-style:normal}
+.tb td.dim{opacity:.35}
+.tb td.hot{background:#FFE08A;border-color:#F0A81E;opacity:1;animation:pop .4s both;animation-delay:calc(var(--o) * 80ms)}
+@keyframes pop{0%{transform:scale(.7)}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+.tabs{display:inline-flex;background:var(--card2);border-radius:12px;padding:3px;gap:3px}
+.tabs button{border-radius:9px;padding:6px 12px;font-weight:800;color:var(--muted);font-size:14px}
+.tabs button.on{background:#fff;color:var(--ink);box-shadow:0 2px 6px rgba(28,33,66,.12)}
+.pairs{display:flex;flex-wrap:wrap;gap:4px}
+.pairs span{background:#FFF3CF;border-radius:999px;padding:2px 8px;font-weight:900;font-size:14px}
+.cnt{font-size:40px;font-weight:900;color:#C77D00;line-height:1}
+.note{font-size:12px;color:var(--muted);margin-top:8px}
+.ro .act{display:none}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* ===== 이 파일은 ATI 수학 Mini+ 'HTML 탐구자료'용 1인 탐구 자료입니다 =====
+   - 외부 서버(Firebase 등)를 쓰지 않습니다. 인터넷 차단(strict) 모드에서도 동작합니다.
+   - 학생 응답은 ATI 응답 규약(parent.postMessage 'ati:response')으로만 저장합니다.
+   - MODE: 'face'(주사위 1개의 눈) / 'sum'(주사위 2개의 합) / 'table'(36칸 표)            */
+const MODE = 'table';
+
+const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+const ORIENT = { 1: [0, 0], 6: [0, 180], 3: [0, -90], 4: [0, 90], 2: [-90, 0], 5: [90, 0] };
+const COLORS = ['#E5484D', '#F76B15', '#F5A623', '#D9B700', '#8BC34A', '#17A15A', '#12A5A5', '#2F8FED', '#2F5FD0', '#6E56CF', '#B14FC5', '#E93D82'];
+const colorOf = v => COLORS[((v % 12) + 12) % 12];
+const PIP_XY = { tl: [27, 27], tr: [73, 27], ml: [27, 50], c: [50, 50], mr: [73, 50], bl: [27, 73], br: [73, 73] };
+const PIP_OF = { 1: ['c'], 2: ['tl', 'br'], 3: ['tl', 'c', 'br'], 4: ['tl', 'tr', 'bl', 'br'], 5: ['tl', 'tr', 'c', 'bl', 'br'], 6: ['tl', 'tr', 'ml', 'mr', 'bl', 'br'] };
+const dieSVG = (v, c) => `<svg viewBox="0 0 100 100"><rect x="4" y="4" width="92" height="92" rx="20" fill="${c === 'B' ? '#2F6FED' : '#E5484D'}"/>${PIP_OF[v].map(p => `<circle cx="${PIP_XY[p][0]}" cy="${PIP_XY[p][1]}" r="9.5" fill="#fff"/>`).join('')}</svg>`;
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const roll6 = () => 1 + Math.floor(Math.random() * 6);
+
+const D = MODE === 'sum' ? 2 : 1;
+const VALS = MODE === 'sum' ? [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] : [1, 2, 3, 4, 5, 6];
+const LABEL = MODE === 'sum' ? '두 눈의 합' : '나온 눈';
+// 학생 상태 (ATI에 저장·복원)
+const st = { pick: null, counts: {}, total: 0, last: null, tbl: { op: 'sum', t: 7, seen: [] } };
+let readonly = false, rolling = false;
+const hitsNow = () => (st.pick != null ? st.counts[st.pick] || 0 : 0);   // 내 예상과 같은 결과 수 (예상을 바꾸면 바로 다시 셈)
+
+/* ---------- ATI 응답 연결 ---------- */
+function save() {
+  let value;
+  if (MODE === 'table') value = `36칸 표에서 살펴본 ${st.tbl.op === 'sum' ? '합' : st.tbl.op === 'diff' ? '차' : '곱'}: ${st.tbl.seen.join(', ') || '없음'}`;
+  else {
+    const top = modes(); value = `내 예상 ${st.pick ?? '-'} · ${st.total}번 던짐 · 가장 많이 나온 값 ${top.join(', ') || '-'} · 예상과 같은 결과 ${hitsNow()}번`;
+  }
+  try { parent.postMessage({ type: 'ati:response', state: { value, pick: st.pick, total: st.total, hits: hitsNow(), counts: st.counts, tbl: st.tbl } }, '*'); } catch (e) {}
+}
+addEventListener('message', ev => {
+  if (ev.source !== parent || !ev.data || ev.data.type !== 'ati:init') return;
+  const s = ev.data.state || {};
+  if (s.counts && typeof s.counts === 'object') st.counts = s.counts;
+  if (typeof s.total === 'number') st.total = s.total;
+  if (s.pick != null) st.pick = s.pick;
+  if (s.tbl && typeof s.tbl === 'object') st.tbl = Object.assign(st.tbl, s.tbl);
+  readonly = !!ev.data.readonly; document.body.classList.toggle('ro', readonly);
+  render(true);
+});
+
+/* ---------- 주사위 실험 ---------- */
+const modes = () => { const mx = Math.max(0, ...VALS.map(v => st.counts[v] || 0)); return mx ? VALS.filter(v => (st.counts[v] || 0) === mx) : []; };
+function barsHTML(vals, cnt, mine) {
+  const mx = Math.max(1, ...vals.map(v => cnt[v] || 0)); const real = Math.max(0, ...vals.map(v => cnt[v] || 0));
+  const tops = real ? vals.filter(v => (cnt[v] || 0) === real) : []; const hasTop = real && tops.length < vals.filter(v => cnt[v]).length;
+  return `<div class="bars ${hasTop ? 'hasTop' : ''}">${vals.map(v => { const c = cnt[v] || 0;
+    return `<div class="bc ${hasTop && tops.includes(v) ? 'top' : ''} ${mine === v ? 'mine' : ''}"><div class="bw"><i class="${c ? '' : 'zero'}" style="height:${c / mx * 100}%;background:${colorOf(v)}">${c ? `<em>${c}</em>` : ''}</i></div><b>${v}</b></div>`; }).join('')}</div>`;
+}
+function labHTML() {
+  const top = modes(); const hits = hitsNow(); const pct = st.total ? Math.round(hits / st.total * 1000) / 10 : 0;
+  const lastTxt = st.last ? (D === 2 ? `${st.last[0]} + ${st.last[1]} = ${st.last[0] + st.last[1]}` : `${st.last[0]}`) : '';
+  return `<h2>${D === 2 ? '주사위 2개를 던져 두 눈의 합 맞히기' : '주사위 1개를 던져 나온 눈 맞히기'}</h2>
+    <p class="sub">먼저 ${D === 2 ? '가장 많이 나올 것 같은 합' : '나올 것 같은 눈'}을 고르고, 던지는 횟수를 늘려 가며 결과를 살펴보세요.</p>
+    <div class="sec act"><div class="lbl">① 내 예상: ${LABEL}</div>
+      <div class="chips">${VALS.map(v => `<button class="${st.pick === v ? 'on' : ''}" data-a="pick" data-v="${v}" ${rolling ? 'disabled' : ''}>${v}</button>`).join('')}</div></div>
+    <div class="stage" id="stage"></div>
+    <div class="readout" id="readout">${rolling ? '🎲 …' : lastTxt}<small>${st.total ? `지금까지 ${st.total}번 던졌어요` : '아직 던지지 않았어요'}</small></div>
+    <div class="sec act"><div class="lbl">② 던지기 ${st.pick == null ? '(먼저 예상을 골라 주세요)' : ''}</div>
+      <div class="row">${[1, 10, 100, 1000].map(n => `<button class="btn" data-a="roll" data-v="${n}" ${st.pick == null || rolling ? 'disabled' : ''}>${n}번 던지기</button>`).join('')}
+        <button class="btn ghost" data-a="reset" ${rolling || !st.total ? 'disabled' : ''}>처음부터</button></div></div>
+    <div class="stat"><div>던진 횟수 <b>${st.total}</b>번</div>
+      <div class="${hits ? 'good' : ''}">내 예상(${st.pick ?? '-'})과 같은 결과 <b>${hits}</b>번${st.total ? ` (${pct}%)` : ''}</div>
+      ${top.length ? `<div>가장 많이 나온 값 <b>${top.join(', ')}</b></div>` : ''}</div>
+    <div class="sec"><div class="lbl">③ 나온 결과 막대그래프</div>${barsHTML(VALS, st.counts, st.pick)}
+      <p class="legend">👑 = 가장 많이 나온 값 · 검은 글자 = 내 예상</p></div>`;
+}
+function buildStage(faces) {
+  const sg = $('#stage'); if (!sg) return; sg.innerHTML = '';
+  for (let i = 0; i < D; i++) {
+    const die = document.createElement('div'); die.className = 'die ' + (i ? 'cB' : 'cA');
+    for (let n = 1; n <= 6; n++) { const f = document.createElement('div'); f.className = 'face f' + n; for (let j = 0; j < 9; j++) { const p = document.createElement('i'); if (PIPS[n].includes(j)) p.className = 'p'; f.appendChild(p); } die.appendChild(f); }
+    die._spin = 0; setDie(die, faces[i] || [5, 2][i], false); sg.appendChild(die);
+  }
+}
+function setDie(el, v, spin) { if (spin) el._spin = (el._spin || 0) + 2; const [rx, ry] = ORIENT[v]; const e = 360 * (el._spin || 0); el.style.transform = `rotateX(${rx + e}deg) rotateY(${ry + e}deg) rotateZ(0deg)`; }
+async function tumble(faces, ms) {
+  const dice = [...document.querySelectorAll('#stage .die')]; dice.forEach(d => d.classList.add('tumbling'));
+  const end = Date.now() + ms;
+  while (Date.now() < end) { dice.forEach(d => { d._spin = (d._spin || 0) + 1; const e = 360 * d._spin; d.style.transform = `rotateX(${e + Math.random() * 360}deg) rotateY(${e + Math.random() * 360}deg) rotateZ(${Math.random() * 180}deg)`; }); await sleep(120); }
+  dice.forEach((d, i) => { d.classList.remove('tumbling'); setDie(d, faces[i], true); }); await sleep(420);
+}
+async function roll(n) {
+  if (rolling || readonly || st.pick == null) return;
+  rolling = true; render(false);
+  const out = []; for (let i = 0; i < n; i++) out.push(Array.from({ length: D }, roll6));
+  await tumble(out[out.length - 1], n === 1 ? 700 : 500);
+  const steps = n >= 100 ? 10 : 1; const per = Math.ceil(n / steps);
+  for (let i = 0; i < n; i += per) {
+    for (const f of out.slice(i, i + per)) { const v = f.reduce((a, b) => a + b, 0); st.counts[v] = (st.counts[v] || 0) + 1; st.total++; }
+    st.last = out[Math.min(i + per, n) - 1];
+    if (steps > 1) { render(false); await sleep(90); }
+  }
+  rolling = false; render(false); save();
+}
+
+/* ---------- 36칸 표 ---------- */
+const calc2 = (op, a, b) => op === 'sum' ? a + b : op === 'diff' ? Math.abs(a - b) : a * b;
+const OPN = { sum: '합', diff: '차', prod: '곱' };
+function tableHTML() {
+  const t = st.tbl, op = t.op; const cnt = {};
+  for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) { const v = calc2(op, a, b); cnt[v] = (cnt[v] || 0) + 1; }
+  const vals = Object.keys(cnt).map(Number).sort((x, y) => x - y); const pairs = []; let o = 0, rows = '';
+  for (let a = 1; a <= 6; a++) { rows += `<tr><th>${dieSVG(a, 'A')}</th>`;
+    for (let b = 1; b <= 6; b++) { const v = calc2(op, a, b); const hot = v === t.t; if (hot) pairs.push([a, b]);
+      rows += `<td class="${hot ? 'hot' : t.t != null ? 'dim' : ''}" style="--o:${hot ? o++ : 0}" data-a="cell" data-v="${v}"><b>${v}</b><small>(<i class="ca">${a}</i>,<i class="cb">${b}</i>)</small></td>`; }
+    rows += '</tr>'; }
+  const nm = OPN[op]; const josa = nm === '차' ? '가' : '이';
+  return `<h2>두 개의 주사위 A, B를 동시에 던질 때</h2>
+    <p class="sub"><b class="ca">● 주사위 A는 세로</b>, <b class="cb">● 주사위 B는 가로</b>예요. 칸이나 숫자를 눌러 같은 ${nm}이 나오는 칸을 찾아보세요.</p>
+    <div class="row" style="margin-bottom:10px"><div class="tabs">${['sum', 'diff', 'prod'].map(k => `<button class="${op === k ? 'on' : ''}" data-a="op" data-v="${k}">두 눈의 ${OPN[k]}</button>`).join('')}</div></div>
+    <div class="tb-wrap"><table class="tb"><tr><th class="corner"><span class="cb">B →</span><br><span class="ca">A ↓</span></th>${[1, 2, 3, 4, 5, 6].map(b => `<th>${dieSVG(b, 'B')}</th>`).join('')}</tr>${rows}</table>
+      <div><div class="lbl">어떤 ${nm}을 볼까요?</div><div class="chips" style="margin-bottom:10px">${vals.map(v => `<button class="${v === t.t ? 'on' : ''}" data-a="tt" data-v="${v}">${v}</button>`).join('')}</div>
+        ${t.t != null ? `<div class="lbl">두 눈의 ${nm}${josa} ${t.t}인 경우</div><div class="pairs">${pairs.map(([a, b]) => `<span>(<i class="ca">${a}</i>, <i class="cb">${b}</i>)</span>`).join('')}</div>
+          <div style="margin-top:8px"><span class="cnt">${pairs.length}</span> <b>가지</b> <span class="sub">/ 모든 경우 36가지</span></div>` : ''}
+        <div class="sec"><div class="lbl">${nm}마다 경우의 수</div>${barsHTML(vals, cnt, t.t)}</div></div></div>
+    <p class="note">눌러 본 ${nm}: ${t.seen.join(', ') || '없음'}</p>`;
+}
+
+/* ---------- 그리기 ---------- */
+function render(fresh) {
+  const app = $('#app');
+  if (MODE === 'table') { app.innerHTML = tableHTML(); return; }
+  const keep = $('#stage'); app.innerHTML = labHTML(); const sg = $('#stage');
+  if (keep && !fresh) sg.replaceWith(keep); else buildStage(st.last || []);
+}
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-a]'); if (!el || el.disabled) return;
+  const a = el.dataset.a, v = Number(el.dataset.v);
+  if (MODE === 'table') {
+    if (a === 'op') { st.tbl.op = el.dataset.v; st.tbl.t = { sum: 7, diff: 1, prod: 6 }[st.tbl.op]; st.tbl.seen = []; }
+    if (a === 'tt' || a === 'cell') st.tbl.t = v;
+    if (st.tbl.t != null && !st.tbl.seen.includes(st.tbl.t)) st.tbl.seen = [...st.tbl.seen, st.tbl.t].sort((x, y) => x - y);
+    render(); if (!readonly) save(); return;
+  }
+  if (readonly) return;
+  if (a === 'pick') { st.pick = v; render(false); save(); }
+  if (a === 'roll') roll(v);
+  if (a === 'reset') { st.counts = {}; st.total = 0; st.last = null; render(false); save(); }
+});
+render(true);
+</script>
+</body>
+</html>
