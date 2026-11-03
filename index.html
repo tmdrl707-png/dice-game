@@ -365,6 +365,136 @@ body.tv #scrollbtns{display:flex}
   .T{font-size:15px}
   .strip{grid-template-columns:repeat(5,minmax(0,1fr))}
 }
+
+/* ================================================================
+   디자인 개편 (2026-11): 밤하늘 보라 배경 + 스티커 카드 + 사탕 버튼
+   ================================================================ */
+:root{
+  --bg:#2A1863; --bg2:#4B22B8; --pop:#FF5FA2; --mint:#2FE0B5; --sky:#5CC8FF;
+  --hi:#FFD23F; --hi2:#FFF1B3; --card2:#F3EEFF; --line:rgba(42,24,99,.16);
+  --ink:#1E1449; --muted:#6B6390;
+  --stk:3px solid var(--ink); --shd:0 6px 0 var(--ink);
+}
+body{background:
+  radial-gradient(circle at 12% 18%,rgba(255,95,162,.35),transparent 32%),
+  radial-gradient(circle at 88% 8%,rgba(92,200,255,.30),transparent 30%),
+  radial-gradient(circle at 80% 92%,rgba(47,224,181,.22),transparent 34%),
+  radial-gradient(rgba(255,255,255,.10) 1.6px,transparent 1.8px) 0 0/26px 26px,
+  linear-gradient(160deg,var(--bg) 0%,var(--bg2) 100%);
+  background-color:var(--bg)}
+html{background:var(--bg2)}
+
+/* 공통 버튼: 굵은 테두리 + 아래 그림자 (눌리면 쏙) */
+.btn{background:var(--hi);color:var(--ink);border:var(--stk);border-radius:18px;box-shadow:0 5px 0 var(--ink);transition:transform .08s,box-shadow .08s}
+.btn:active:not(:disabled){transform:translateY(4px);box-shadow:0 1px 0 var(--ink)}
+.btn.ghost{background:#fff;box-shadow:0 4px 0 var(--ink)}
+.btn.dark{background:var(--pop);color:#fff}
+.btn.red{background:var(--pop)}
+.btn:disabled{opacity:.45;box-shadow:0 3px 0 rgba(30,20,73,.5)}
+
+/* 카드 = 스티커 */
+.card,.E-card,.S-head,.panel{border:var(--stk);box-shadow:var(--shd)}
+.card,.E-card{border-radius:24px}
+
+/* ---------- 입장 ---------- */
+.E-hero{text-align:center}
+.E-logo{justify-content:center;gap:14px}
+.E-logo .sd{width:64px;height:64px;filter:drop-shadow(0 5px 0 rgba(0,0,0,.35));animation:bob 2.4s ease-in-out infinite}
+.E-logo .sd:nth-child(2){animation-delay:-1.2s}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-10deg)}50%{transform:translateY(-10px) rotate(8deg)}}
+.E-title{color:var(--hi);-webkit-text-stroke:2px var(--ink);paint-order:stroke fill;text-shadow:0 5px 0 var(--ink),0 0 30px rgba(255,210,63,.35);font-size:clamp(40px,13vw,60px)}
+.E-hero p{color:#E9E3FF;font-weight:600}
+.E summary{color:#D9D1FF;font-weight:700}
+.E-card summary{color:var(--muted)}
+.E-card input{background:#fff;border:2.5px solid var(--line);border-radius:16px}
+.E-card input:focus{border-color:var(--bg2);box-shadow:0 0 0 4px rgba(75,34,184,.18)}
+.note{background:rgba(255,255,255,.12);color:#EDE8FF;border:1.5px dashed rgba(255,255,255,.35)}
+.resume{background:var(--mint)}
+
+/* ---------- 학생 ---------- */
+.S-head{border-radius:22px;background:linear-gradient(120deg,#fff 0%,#fff 55%,#FFF4C7 100%)}
+.coinbox b{font-size:34px;color:#C98500;-webkit-text-stroke:1px var(--ink);paint-order:stroke fill}
+.coinbox .rk{background:var(--pop);border:2px solid var(--ink)}
+.coin-i{box-shadow:inset 0 -2px 0 rgba(0,0,0,.18),0 0 0 2px var(--ink)}
+.S-q h2{color:var(--bg2);font-size:32px}
+.S-q .dz .sd{width:46px;height:46px;animation:bob 2.6s ease-in-out infinite}
+.S-q .dz .sd:nth-child(2){animation-delay:-.9s} .S-q .dz .sd:nth-child(3){animation-delay:-1.7s}
+/* 숫자 버튼: 사탕색 */
+.vals button{border:var(--stk);box-shadow:0 4px 0 var(--ink);color:var(--ink);transition:transform .08s,box-shadow .08s}
+.vals button:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+.vals button:nth-child(6n+1){background:#FFE1EC} .vals button:nth-child(6n+2){background:#FFF0C2}
+.vals button:nth-child(6n+3){background:#D9F7EC} .vals button:nth-child(6n+4){background:#DCEFFF}
+.vals button:nth-child(6n+5){background:#ECE3FF} .vals button:nth-child(6n+6){background:#FFE6D3}
+.vals button.on{background:var(--hi)!important;transform:translateY(3px);box-shadow:0 1px 0 var(--ink),0 0 0 4px rgba(255,210,63,.45)}
+/* 내 예상 칸 */
+.slot{border-color:#C9BFEA;background:#F7F4FF}
+.slot.fill{border:var(--stk);background:#fff;animation:pop .3s both}
+.slot.fill b{color:var(--bg2)}
+.slot.cur{border:3px solid var(--pop);box-shadow:0 0 0 4px rgba(255,95,162,.25);animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 8px rgba(255,95,162,.12)}}
+.slot.hit{background:#D2F8E8;border:3px solid #0E9F6E;animation:pop .45s both}
+.slot.hit b{color:#0B7A53}
+.tools button{background:#fff;border:2px solid var(--line)}
+.status{color:#fff;background:var(--bg2);border-radius:999px;padding:6px 12px;display:inline-block}
+.card .status{color:var(--ink);background:var(--card2)}
+.status.ok{background:#D2F8E8;color:#0B7A53}
+.big-msg .em{font-size:60px;animation:jump .7s cubic-bezier(.3,1.6,.5,1) both}
+@keyframes jump{0%{transform:scale(.3) rotate(-20deg);opacity:0}100%{transform:none;opacity:1}}
+.big-msg h2{color:var(--bg2)}
+.gain{color:#F5A700;-webkit-text-stroke:2px var(--ink);paint-order:stroke fill;text-shadow:0 4px 0 var(--ink);font-size:54px;animation:jump .6s .15s cubic-bezier(.3,1.6,.5,1) both}
+.hitsum b{color:#0E9F6E}
+.rollmsg{background:var(--pop);border:var(--stk);box-shadow:var(--shd)}
+
+/* ---------- 선생님 (전자칠판) ---------- */
+.T-title{color:var(--hi);-webkit-text-stroke:.06em var(--ink);paint-order:stroke fill;text-shadow:0 .1em 0 var(--ink)}
+.T-brand .sd{filter:drop-shadow(0 4px 0 rgba(0,0,0,.35))}
+.T-room{background:var(--pop);border:2.5px solid var(--ink);box-shadow:0 3px 0 var(--ink)}
+.T-btns button{border:2.5px solid var(--ink);box-shadow:0 3px 0 var(--ink)}
+.T-btns button:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
+.T-btns button.warn{border-color:var(--ink);background:#FFE1EC}
+.panel{border-radius:28px}
+.panel h3{color:var(--bg2);font-weight:900}
+.q-title h2{color:var(--bg2)}
+.prog .bar{border:2px solid var(--ink);height:1.1em}
+.prog .bar i{background:linear-gradient(90deg,var(--mint),#0E9F6E)}
+.notyet span.done{background:#D2F8E8;color:#0B7A53}
+.presets button.on,.seg button.on{background:var(--bg2);border-color:var(--ink);color:#fff}
+.seg button{border:2px solid var(--line)}
+.preview{background:var(--card2);border:2px dashed #C9BFEA}
+.stage{background:radial-gradient(ellipse at 50% 30%,#3B2A8F 0%,#24175F 60%,#170E40 100%);border:var(--stk);
+  box-shadow:inset 0 0 0 6px rgba(255,255,255,.06),inset 0 12px 40px rgba(0,0,0,.45),0 6px 0 var(--ink)}
+.stage::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(rgba(255,255,255,.18) 1.2px,transparent 1.4px) 0 0/30px 30px;opacity:.6}
+.stage{position:relative}
+.dcol span{background:var(--hi);color:var(--ink);border:2px solid var(--ink)}
+.die .face{box-shadow:inset 0 0 0 3px rgba(0,0,0,.25),inset 0 -8px 14px rgba(0,0,0,.22)}
+.rb.on{border:3px solid var(--ink)}
+.rb.next{border:3px solid var(--pop);background:#FFE1EC}
+.tabs{background:var(--card2);border:2px solid var(--line)}
+.tabs button.on{background:var(--bg2);color:#fff}
+.toggle{background:var(--card2);border:2px solid var(--line)}
+.toggle.on{background:var(--bg2);border-color:var(--ink)}
+.big-res b{color:var(--pop);-webkit-text-stroke:.03em var(--ink);paint-order:stroke fill}
+.tops span{background:#D2F8E8;border:2px solid #0E9F6E}
+/* 순위표 */
+.board li{background:var(--card2);border:2px solid transparent}
+.board li.top1{background:linear-gradient(90deg,#FFE27A,#FFF3C4);border-color:var(--ink)}
+.board li.top2{background:linear-gradient(90deg,#DCE3F5,#F1F4FB);border-color:#9AA3C0}
+.board li.top3{background:linear-gradient(90deg,#F6C8A6,#FCE6D6);border-color:#C98A5F}
+.board .rk{color:var(--bg2)}
+/* 대기실 */
+.qr{box-shadow:0 0 0 4px var(--ink),0 8px 0 4px var(--ink);border-radius:20px}
+.join-code{color:var(--pop);-webkit-text-stroke:.03em var(--ink);paint-order:stroke fill;text-shadow:0 .06em 0 var(--ink)}
+.names button{background:#fff;border:2.5px solid var(--ink);box-shadow:0 3px 0 var(--ink);animation:pop .35s both}
+/* 시상대 */
+.pd .blk{border:var(--stk);border-bottom:none}
+.pd.p1 .nm{color:#C98500}
+/* 36칸 표 */
+.tb td.hot{background:var(--hi);border-color:var(--ink)}
+.cnt-big{color:var(--pop)}
+.ov-box{border:var(--stk);box-shadow:0 10px 0 var(--ink),0 30px 80px rgba(0,0,0,.5)}
+#scrollbtns button{background:var(--pop);border:3px solid #fff}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
 </head>
 <body>
