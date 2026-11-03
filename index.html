@@ -494,6 +494,14 @@ html{background:var(--bg2)}
 .cnt-big{color:var(--pop)}
 .ov-box{border:var(--stk);box-shadow:0 10px 0 var(--ink),0 30px 80px rgba(0,0,0,.5)}
 #scrollbtns button{background:var(--pop);border:3px solid #fff}
+/* 시상대 1~5등 */
+.podium{gap:1.4vw}
+.pd{width:min(16vw,12em)}
+.pd .nm{font-size:1.7em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.pd.p1 .nm{font-size:2.1em}
+.pd.p4 .blk{height:9.5vh;background:linear-gradient(#B9A6F5,#7E63D8)}
+.pd.p5 .blk{height:7.5vh;background:linear-gradient(#9FD8F7,#5AA9D6)}
+.pd.p4 .blk,.pd.p5 .blk{font-size:2.2em;line-height:1}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
 </head>
@@ -1066,11 +1074,12 @@ function doneHTML(r) {
 
 /* ---- 끝 ---- */
 function endHTML() {
-  const rk = ranking(); const at = r => rk.filter(x => x.rank === r);
-  const pd = (r, cls) => { const xs = at(r); if (!xs.length) return ''; return `<div class="pd ${cls}"><div class="nm">${xs.map(x => `<button data-a="stu" data-id="${x.id}">${esc(P(x.id).name)}</button>`).join('<br>')}</div><div class="cn"><span class="coin-i">c</span> ${xs[0].c}</div><div class="blk">${r}</div></div>`; };
+  // 시상대: 순위표 위에서부터 5명을 한 자리씩 (같은 코인이면 같은 등수 숫자)
+  const rk = ranking(); const top5 = rk.slice(0, 5);
+  const pd = (pos, cls) => { const x = top5[pos - 1]; if (!x) return ''; return `<div class="pd ${cls}"><div class="nm"><button data-a="stu" data-id="${x.id}">${esc(P(x.id).name)}</button></div><div class="cn"><span class="coin-i">c</span> ${x.c}</div><div class="blk">${x.rank}</div></div>`; };
   return `<div class="T">${headHTML('<button data-a="resumegame">↩ 게임 계속하기</button>')}
     <section class="panel"><h2 style="font-family:var(--fd);font-weight:400;font-size:2.6em;text-align:center">🏆 최종 결과</h2>
-      <div class="podium">${pd(2, 'p2')}${pd(1, 'p1')}${pd(3, 'p3')}</div>
+      <div class="podium">${pd(4, 'p4')}${pd(2, 'p2')}${pd(1, 'p1')}${pd(3, 'p3')}${pd(5, 'p5')}</div>
       <p class="muted" style="text-align:center;margin-bottom:.6em">이름을 누르면 그 친구가 라운드마다 무엇을 예상했고 맞혔는지 볼 수 있어요.</p>
       ${boardHTML(5)}</section></div>`;
 }
