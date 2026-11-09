@@ -503,6 +503,20 @@ html{background:var(--bg2)}
 /* 10000번처럼 막대 숫자가 4자리 이상일 때 겹치지 않게 */
 .bars.big4 .bw em{font-size:.7em;letter-spacing:-.04em}
 .S .bars.big4 .bw em,.pgrid .bars.big4 .bw em{font-size:9px;letter-spacing:-.05em}
+/* 동전 (3D 원판) */
+.die.coin3d{border-radius:50%}
+.cface{position:absolute;inset:0;border-radius:50%;display:grid;place-items:center;backface-visibility:hidden;font-family:var(--fd);font-size:calc(var(--s) * .42);
+  box-shadow:inset 0 0 0 calc(var(--s) * .06) rgba(0,0,0,.18),inset 0 calc(var(--s) * -.08) calc(var(--s) * .12) rgba(0,0,0,.18),0 0 0 3px var(--ink)}
+.cface.heads{background:radial-gradient(circle at 35% 30%,#FFF2A8,#FFD23F 45%,#E0A800);color:#8A5A00}
+.cface.tails{background:radial-gradient(circle at 35% 30%,#FFFFFF,#D9DDE8 50%,#A7AEC2);color:#4A5068;transform:rotateY(180deg)}
+.vals.v2{grid-template-columns:repeat(2,1fr)} .vals.v2 button{font-size:34px;padding:18px 0}
+.bars.side .bc b{font-size:1.3em}
+/* 10만 번 이상: 휴대폰에서는 '16.7만'처럼 짧게 */
+.bw em .short{display:none}
+.S .bars.big6 .bw em .full,.pgrid .bars.big6 .bw em .full{display:none}
+.S .bars.big6 .bw em .short,.pgrid .bars.big6 .bw em .short{display:inline}
+.bars.big6 .bw em{font-size:.62em;letter-spacing:-.05em}
+.seg button{white-space:nowrap}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
 </head>
@@ -614,8 +628,18 @@ const lstore = safeStore(() => localStorage);   // 선생님 설정 기억용
 
 /* ---------------- 주사위 규칙 ---------------- */
 const DCOL = ['A', 'B', 'C'];
-const KIND_NAME = { face: '눈', sum: '합', diff: '차', prod: '곱', max: '큰 눈' };
+const KIND_NAME = { face: '눈', sum: '합', diff: '차', prod: '곱', max: '큰 눈', side: '면', heads: '앞면 수' };
+// 동전: 1 = 앞면, 0 = 뒷면 (동전 1개는 '면', 2~3개는 '앞면의 개수')
+const COIN_KINDS = ['side', 'heads'];
+const isCoinK = k => COIN_KINDS.includes(k);
+const TOOL = k => (isCoinK(k) ? '동전' : '주사위');
+const VL = (k, v) => (k === 'side' ? (v ? '앞' : '뒤') : v);           // 화면에 보이는 값
+const valWord = k => (k === 'side' ? '면' : '숫자');
+const roLab = (k, v) => (k === 'side' ? (v ? '앞으로' : '뒤로') : numRo(v));
+const fmtN = n => (n >= 10000 && n % 10000 === 0 ? (n / 10000) + '만' : Number(n).toLocaleString('ko-KR'));
 function kindLabel(d, k) {
+  if (k === 'side') return '나온 면 (앞·뒤)';
+  if (k === 'heads') return `동전 ${d}개 중 앞면의 개수`;
   if (k === 'face') return '나온 눈';
   const w = d === 2 ? '두' : '세';
   if (k === 'sum') return `${w} 눈의 합`;
@@ -629,18 +653,27 @@ function kindHint(d, k) {
   return '';
 }
 const calc = (k, f) => k === 'face' ? f[0] : k === 'sum' ? f.reduce((a, b) => a + b, 0) : k === 'prod' ? f.reduce((a, b) => a * b, 1)
-  : k === 'diff' ? Math.max(...f) - Math.min(...f) : k === 'max' ? Math.max(...f) : null;
-function outcomes(d) { let r = [[]]; for (let i = 0; i < d; i++) { const nx = []; for (const x of r) for (let v = 1; v <= 6; v++) nx.push([...x, v]); r = nx; } return r; }
+  : k === 'diff' ? Math.max(...f) - Math.min(...f) : k === 'max' ? Math.max(...f)
+  : k === 'side' ? f[0] : k === 'heads' ? f.reduce((a, b) => a + b, 0) : null;
+const FACES = k => (isCoinK(k) ? [1, 0] : [1, 2, 3, 4, 5, 6]);
+function outcomes(d, k) { let r = [[]]; for (let i = 0; i < d; i++) { const nx = []; for (const x of r) for (const v of FACES(k)) nx.push([...x, v]); r = nx; } return r; }
 const VCACHE = {};
-const possible = (d, k) => VCACHE[d + k] || (VCACHE[d + k] = [...new Set(outcomes(d).map(f => calc(k, f)))].sort((a, b) => a - b));
+const possible = (d, k) => VCACHE[d + k] || (VCACHE[d + k] = k === 'side' ? [1, 0] : [...new Set(outcomes(d, k).map(f => calc(k, f)))].sort((a, b) => a - b));   // 동전 1개는 앞, 뒤 순서
 const choices = (d, k) => possible(d, k);   // 학생은 나올 수 있는 값만 고름 (합이면 2~12)
-// 100번·1000번·10000번: 학생은 '가장 많이 나올 숫자' 하나만 예상 (최빈값을 맞히면 코인)
+// 100번 이상(100만 번까지): 학생은 '가장 많이 나올 숫자' 하나만 예상 (최빈값을 맞히면 코인)
 const isBig = r => r && r.n >= 100;
 const slotsN = r => (isBig(r) ? 1 : r.n);
 const modesOf = res => { const c = {}; res.forEach(v => (c[v] = (c[v] || 0) + 1)); const mx = Math.max(0, ...Object.values(c)); return mx ? Object.keys(c).filter(v => c[v] === mx).map(Number) : []; };
 const countOf = res => { const c = {}; res.forEach(v => (c[v] = (c[v] || 0) + 1)); return c; };
-const rollFaces = d => Array.from({ length: d }, () => 1 + Math.floor(Math.random() * 6));
-const cfgTitle = r => `주사위 ${r.d}개 · ${KIND_NAME[r.kind]} · ${r.n}번`;
+const rollFaces = (d, k) => Array.from({ length: d }, () => (isCoinK(k) ? (Math.random() < .5 ? 1 : 0) : 1 + Math.floor(Math.random() * 6)));
+const cfgTitle = r => `${TOOL(r.kind)} ${r.d}개 · ${KIND_NAME[r.kind]} · ${fmtN(r.n)}번`;
+// 많이 던지는 라운드는 결과를 하나하나 저장하지 않고 '값마다 나온 횟수(cnt)'만 저장 (100만 번도 가볍게)
+const encC = c => { const o = {}; for (const v in c) o['v' + v] = c[v]; return o; };
+const decC = o => { const c = {}; for (const key in (o || {})) if (o[key]) c[Number(String(key).replace(/^v/, ''))] = o[key]; return c; };
+const cntR = r => (r && r.cnt ? decC(r.cnt) : countOf(resVals(r)));
+const doneR = r => (r && r.cnt ? (r.done || 0) : arr(r && r.res).length);
+const modesC = c => { const mx = Math.max(0, ...Object.values(c)); return mx ? Object.keys(c).filter(v => c[v] === mx).map(Number) : []; };
+const modesR = r => modesC(cntR(r));
 const sameCfg = (a, b) => a.d === b.d && a.kind === b.kind;
 
 // 작은 주사위 그림 (SVG)
@@ -652,6 +685,13 @@ function dieSVG(v, c = 'A') {
   return `<svg class="sd" viewBox="0 0 100 100" aria-label="${v}"><rect x="4" y="4" width="92" height="92" rx="20" fill="${fill}" stroke="rgba(0,0,0,.18)" stroke-width="4"/>${(PIP_OF[v] || []).map(p => `<circle cx="${PIP_XY[p][0]}" cy="${PIP_XY[p][1]}" r="9.5" fill="${pip}"/>`).join('')}</svg>`;
 }
 const diceIcons = (d, vals) => Array.from({ length: d }, (_, i) => dieSVG(vals ? vals[i] : [5, 3, 6][i], DCOL[i])).join('');
+// 동전 그림 (앞 = 금색 '앞', 뒤 = 은색 '뒤')
+function coinSVG(v) {
+  const a = v ? ['#FFD84D', '#C98A00', '앞'] : ['#E3E6EE', '#8A90A6', '뒤'];
+  return `<svg class="sd" viewBox="0 0 100 100" aria-label="${a[2]}"><circle cx="50" cy="50" r="45" fill="${a[0]}" stroke="${a[1]}" stroke-width="6"/><circle cx="50" cy="50" r="33" fill="none" stroke="${a[1]}" stroke-width="3" stroke-dasharray="4 5"/><text x="50" y="64" text-anchor="middle" font-size="40" font-weight="900" fill="${a[1]}" font-family="sans-serif">${a[2]}</text></svg>`;
+}
+const toolIcons = (d, k) => (isCoinK(k) ? Array.from({ length: d }, (_, i) => coinSVG([1, 0, 1][i])).join('') : diceIcons(d));
+const faceIcon = (k, v, j) => (isCoinK(k) ? coinSVG(v) : dieSVG(v, DCOL[j]));
 
 /* ---------------- 상태 ---------------- */
 let S = {};
@@ -674,7 +714,7 @@ const guessesOf = k => (S.guess && S.guess[k]) || {};
 const resVals = r => arr(r && r.res).map(x => x.v);
 const histList = () => arr(S.hist).sort((a, b) => a.k - b.k);
 const hitsOf = (g, res) => { g = arr(g); let h = 0; res.forEach((v, i) => { if (g[i] === v) h++; }); return h; };
-const scoreOf = (r, g, res) => isBig(r) ? (modesOf(res).includes(arr(g)[0]) ? 1 : 0) : hitsOf(g, res);
+const scoreOf = (r, g, res) => isBig(r) ? (modesR(r).includes(arr(g)[0]) ? 1 : 0) : hitsOf(g, res);
 
 /* =====================================================================
    입장 화면
@@ -909,10 +949,10 @@ function boardHTML(lim) {
 }
 function qTitleHTML(r) {
   const hint = kindHint(r.d, r.kind);
-  if (isBig(r)) return `<div class="q-title"><div class="dz">${diceIcons(r.d)}</div><h2>${r.n}번 던지면 가장 많이 나올 ${josa(KIND_NAME[r.kind], '는', '은')}?</h2></div>
-    <p class="q-sub">${r.k ? `<b>${r.k}라운드</b> · ` : ''}주사위 ${r.d}개 · <b>${esc(kindLabel(r.d, r.kind))}</b> · 가장 많이 나온 숫자를 맞히면 <span class="coin-i">c</span> ${r.coin}개${hint ? ' · ' + hint : ''}</p>`;
-  return `<div class="q-title"><div class="dz">${diceIcons(r.d)}</div><h2>${josa(kindLabel(r.d, r.kind), '를', '을')} 맞혀라!</h2></div>
-    <p class="q-sub">${r.k ? `<b>${r.k}라운드</b> · ` : ''}주사위 ${r.d}개 · <b>${r.n}번</b> 예상 · 맞힐 때마다 <span class="coin-i">c</span> ${r.coin}개${hint ? ' · ' + hint : ''}</p>`;
+  if (isBig(r)) return `<div class="q-title"><div class="dz">${toolIcons(r.d, r.kind)}</div><h2>${fmtN(r.n)}번 던지면 가장 많이 나올 ${josa(KIND_NAME[r.kind], '는', '은')}?</h2></div>
+    <p class="q-sub">${r.k ? `<b>${r.k}라운드</b> · ` : ''}${TOOL(r.kind)} ${r.d}개 · <b>${esc(kindLabel(r.d, r.kind))}</b> · 가장 많이 나온 ${valWord(r.kind)}를 맞히면 <span class="coin-i">c</span> ${r.coin}개${hint ? ' · ' + hint : ''}</p>`;
+  return `<div class="q-title"><div class="dz">${toolIcons(r.d, r.kind)}</div><h2>${josa(kindLabel(r.d, r.kind), '를', '을')} 맞혀라!</h2></div>
+    <p class="q-sub">${r.k ? `<b>${r.k}라운드</b> · ` : ''}${TOOL(r.kind)} ${r.d}개 · <b>${r.n}번</b> 예상 · 맞힐 때마다 <span class="coin-i">c</span> ${r.coin}개${hint ? ' · ' + hint : ''}</p>`;
 }
 
 const PRESETS = [
@@ -924,39 +964,44 @@ const PRESETS = [
 function saveSetup() { try { lstore.setItem('dice_setup', JSON.stringify(App.setup)); } catch (e) {} }
 function setupHTML() {
   const s = App.setup; const hs = histList();
-  const kinds = s.d === 1 ? ['face'] : ['sum', 'diff', 'prod', 'max'];
+  const coin = s.tool === 'coin';
+  const kinds = coin ? [s.d === 1 ? 'side' : 'heads'] : s.d === 1 ? ['face'] : ['sum', 'diff', 'prod', 'max'];
   const seg = (a, list, cur, lab) => `<div class="seg">${list.map(v => `<button class="${v === cur ? 'on' : ''}" data-a="${a}" data-v="${v}">${lab(v)}</button>`).join('')}</div>`;
   const vals = choices(s.d, s.kind);
   return `<div class="setup">
-    <div class="opt"><span>주사위</span>${seg('sd', [1, 2, 3], s.d, v => v + '개')}</div>
+    <div class="opt"><span>도구</span>${seg('st', ['dice', 'coin'], coin ? 'coin' : 'dice', v => (v === 'coin' ? '🪙 동전' : '🎲 주사위'))}</div>
+    <div class="opt"><span>${coin ? '동전' : '주사위'}</span>${seg('sd', [1, 2, 3], s.d, v => v + '개')}</div>
     <div class="opt"><span>맞힐 것</span>${seg('sk', kinds, s.kind, v => KIND_NAME[v])}</div>
-    <div class="opt"><span>시도 횟수</span>${seg('sn', [1, 3, 5, 10, 100, 1000, 10000], s.n, v => v + '번')}</div>
+    <div class="opt"><span>시도 횟수</span>${seg('sn', [1, 3, 5, 10, 100, 1000, 10000, 100000, 1000000], s.n, v => fmtN(v) + '번')}</div>
     <div class="opt"><span>맞히면</span>${seg('sc', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], s.coin, v => v + '개')}</div>
-    <div class="preview"><div><b>${esc(kindLabel(s.d, s.kind))}</b> <span class="muted">· 고를 수 있는 숫자 ${vals.length}가지 (${vals[0]}~${vals[vals.length - 1]})</span></div>
+    <div class="preview"><div><b>${esc(kindLabel(s.d, s.kind))}</b> <span class="muted">· ${s.kind === 'side' ? '앞 또는 뒤 중에서 골라요' : `고를 수 있는 숫자 ${vals.length}가지 (${vals[0]}~${vals[vals.length - 1]})`}</span></div>
       <button class="btn big" data-a="openround">▶ 라운드 시작</button></div>
     ${cumHTML(s)}
-    ${hs.length ? `<div><h3>지난 라운드</h3><div class="hist">${hs.slice().reverse().map(h => `<div><em>${h.k}R</em><b>${esc(cfgTitle(h))}</b><span>${isBig(h) ? `가장 많이 ${modesOf(arr(h.res)).join(', ')}` : '결과 ' + arr(h.res).join(', ')}</span></div>`).join('')}</div></div>` : ''}
+    ${hs.length ? `<div><h3>지난 라운드</h3><div class="hist">${hs.slice().reverse().map(h => `<div><em>${h.k}R</em><b>${esc(cfgTitle(h))}</b><span>${isBig(h) ? `가장 많이 ${modesC(cntR(h)).map(v => VL(h.kind, v)).join(', ')}` : '결과 ' + arr(h.res).map(v => VL(h.kind, v)).join(', ')}</span></div>`).join('')}</div></div>` : ''}
   </div>`;
 }
 // 같은 종류(주사위 개수·맞힐 것)의 지난 결과를 모두 모은 그래프
 function cumHTML(cfg, force) {
-  const hs = histList().filter(h => sameCfg(h, cfg)); const all = hs.flatMap(h => arr(h.res));
-  if (!all.length) return '';
-  const vals = possible(cfg.d, cfg.kind); const cnt = {}; all.forEach(v => (cnt[v] = (cnt[v] || 0) + 1));
-  if (!force && !App.cum) return `<div><button class="toggle" data-a="cum">📊 '주사위 ${cfg.d}개 · ${KIND_NAME[cfg.kind]}' 지금까지 결과 모아보기 (${all.length}번)</button></div>`;
-  return `<div class="ch"><h4><span>📊 주사위 ${cfg.d}개 · ${KIND_NAME[cfg.kind]} — 지금까지 나온 결과 모두</span><small>${hs.length}라운드 · ${all.length}번 <button class="toggle on" data-a="cum">접기</button></small></h4>
+  const hs = histList().filter(h => sameCfg(h, cfg)); const cnt = {}; let tot = 0;
+  hs.forEach(h => { const c = h.cnt ? decC(h.cnt) : countOf(arr(h.res)); for (const v in c) { cnt[v] = (cnt[v] || 0) + c[v]; tot += c[v]; } });
+  if (!tot) return '';
+  const vals = possible(cfg.d, cfg.kind);
+  if (!force && !App.cum) return `<div><button class="toggle" data-a="cum">📊 '${TOOL(cfg.kind)} ${cfg.d}개 · ${KIND_NAME[cfg.kind]}' 지금까지 결과 모아보기 (${fmtN(tot)}번)</button></div>`;
+  return `<div class="ch"><h4><span>📊 ${TOOL(cfg.kind)} ${cfg.d}개 · ${KIND_NAME[cfg.kind]} — 지금까지 나온 결과 모두</span><small>${hs.length}라운드 · ${fmtN(tot)}번 <button class="toggle on" data-a="cum">접기</button></small></h4>
     ${barsHTML(vals, cnt, { cls: 'res' })}</div>`;
 }
 // 값마다 정해진 색 (같은 숫자는 어느 그래프에서나 같은 색)
 const BAR_COLORS = ['#E5484D', '#F76B15', '#F5A623', '#D9B700', '#8BC34A', '#17A15A', '#12A5A5', '#2F8FED', '#2F5FD0', '#6E56CF', '#B14FC5', '#E93D82'];
 const barColor = v => BAR_COLORS[((Math.round(v) % BAR_COLORS.length) + BAR_COLORS.length) % BAR_COLORS.length];
+const fmtC = c => (c >= 100000 ? `<span class="full">${c.toLocaleString('ko-KR')}</span><span class="short">${(c / 10000).toFixed(1)}만</span>` : c >= 10000 ? c.toLocaleString('ko-KR') : c);
 function barsHTML(vals, cnt, o = {}) {
+  const side = vals.length === 2 && vals[0] === 1 && vals[1] === 0;   // 동전 1개(앞, 뒤 순서): 1 = 앞, 0 = 뒤
   const mx = Math.max(1, ...vals.map(v => cnt[v] || 0));
   const hot = v => o.hot != null && (Array.isArray(o.hot) ? o.hot.includes(v) : o.hot === v);
   const real = Math.max(0, ...vals.map(v => cnt[v] || 0)); const tops = vals.filter(v => real > 0 && (cnt[v] || 0) === real);
   const hasTop = real > 0 && tops.length < vals.filter(v => cnt[v]).length;   // 모두 같으면 강조하지 않음
-  return `<div class="bars ${o.cls || ''} ${vals.length > 16 ? 'many' : ''} ${hasTop ? 'hasTop' : ''} ${real >= 1000 ? 'big4' : ''}">${vals.map(v => { const c = cnt[v] || 0;
-    return `<div class="bc ${hot(v) ? 'hot' : ''} ${hasTop && tops.includes(v) ? 'top' : ''}"><div class="bw"><i style="height:${c / mx * 100}%;background:${barColor(v)}">${c ? `<em>${c}</em>` : ''}</i></div><b>${v}</b></div>`; }).join('')}</div>`;
+  return `<div class="bars ${o.cls || ''} ${vals.length > 16 ? 'many' : ''} ${hasTop ? 'hasTop' : ''} ${real >= 1000 ? 'big4' : ''} ${real >= 10000 ? 'big6' : ''} ${side ? 'side' : ''}">${vals.map(v => { const c = cnt[v] || 0;
+    return `<div class="bc ${hot(v) ? 'hot' : ''} ${hasTop && tops.includes(v) ? 'top' : ''}"><div class="bw"><i style="height:${c / mx * 100}%;background:${barColor(v)}">${c ? `<em>${fmtC(c)}</em>` : ''}</i></div><b>${side ? VL('side', v) : v}</b></div>`; }).join('')}</div>`;
 }
 
 // 학생 예상 막대그래프: 시도 횟수만큼 (몇 번째 칸에 어떤 숫자를 많이 골랐는지). 결과가 나오면 그 숫자를 초록으로
@@ -967,14 +1012,14 @@ function slotChartsHTML(r) {
   return `<div class="pgrid n${r.n}">${Array.from({ length: r.n }, (_, i) => {
     const cnt = {}; subs.forEach(a => { if (a[i] != null) cnt[a[i]] = (cnt[a[i]] || 0) + 1; });
     const x = res[i]; const hit = x ? subs.filter(a => a[i] === x.v).length : 0;
-    return `<div class="ch"><h4><span>${r.n > 1 ? (i + 1) + '번째' : '우리 반의 예상'}</span><small>${x ? `결과 <b>${x.v}</b> · 🎯${hit}명` : '결과 ?'}</small></h4>${barsHTML(vals, cnt, { cls: 'pick', hot: x ? x.v : null })}</div>`;
+    return `<div class="ch"><h4><span>${r.n > 1 ? (i + 1) + '번째' : '우리 반의 예상'}</span><small>${x ? `결과 <b>${VL(r.kind, x.v)}</b> · 🎯${hit}명` : '결과 ?'}</small></h4>${barsHTML(vals, cnt, { cls: 'pick', hot: x ? x.v : null })}</div>`;
   }).join('')}</div>`;
 }
 function openHTML(r) {
   const ids = sortedIds(); const g = guessesOf(r.k); const done = ids.filter(id => g[id]).length;
   return `${qTitleHTML(r)}
-    <div class="stage-wrap"><div id="stage" class="stage" data-k="${r.k}-${r.d}" data-d="${r.d}"></div></div>
-    <div class="prog"><div class="lbl"><span>휴대폰에서 예상한 숫자를 골라 제출하세요</span><span><b>${done}</b> / ${ids.length}명 제출</span></div>
+    <div class="stage-wrap"><div id="stage" class="stage" data-k="${r.k}-${r.d}-${r.kind}" data-d="${r.d}" data-coin="${isCoinK(r.kind) ? 1 : ''}"></div></div>
+    <div class="prog"><div class="lbl"><span>휴대폰에서 예상한 ${valWord(r.kind)}를 골라 제출하세요</span><span><b>${done}</b> / ${ids.length}명 제출</span></div>
       <div class="bar"><i style="width:${ids.length ? done / ids.length * 100 : 0}%"></i></div>
       <div class="notyet">${ids.map(id => `<span class="${g[id] ? 'done' : ''}">${g[id] ? '✓ ' : ''}${esc(P(id).name)}</span>`).join('')}</div></div>
     <div class="row"><button class="btn big dark" data-a="close">⏹ 제출 마감하기</button>
@@ -986,8 +1031,8 @@ function rollHTML(r) {
   if (isBig(r)) return bigRollHTML(r);
   const res = arr(r.res); const left = r.n - res.length; const vals = possible(r.d, r.kind);
   const last = res[res.length - 1];
-  const read = App.rolling ? '🎲 …' : last ? (last.f && r.d > 1 ? `${last.f.join(r.kind === 'prod' ? ' × ' : r.kind === 'sum' ? ' + ' : ', ')}${r.kind === 'sum' || r.kind === 'prod' ? ' = ' : ' → '}${last.v}` : `${last.v}`) : '';
-  const sub = App.rolling ? '' : last ? `<small>${res.length}번째 결과${last.f ? '' : ' (직접 입력)'}</small>` : '<small>제출 마감! 이제 주사위를 던져요</small>';
+  const read = App.rolling ? (isCoinK(r.kind) ? '🪙 …' : '🎲 …') : last ? (r.kind === 'heads' && last.f ? `${last.f.map(v => VL('side', v)).join(', ')} → 앞면 ${last.v}개` : last.f && r.d > 1 ? `${last.f.join(r.kind === 'prod' ? ' × ' : r.kind === 'sum' ? ' + ' : ', ')}${r.kind === 'sum' || r.kind === 'prod' ? ' = ' : ' → '}${last.v}` : `${VL(r.kind, last.v)}`) : '';
+  const sub = App.rolling ? '' : last ? `<small>${res.length}번째 결과${last.f ? '' : ' (직접 입력)'}</small>` : `<small>제출 마감! 이제 ${TOOL(r.kind)}를 던져요</small>`;
   const ctrl = left <= 0
     ? `<div class="row"><button class="btn big" data-a="score">✅ 채점하기</button><button class="btn ghost" data-a="dellast">↩ 마지막 결과 지우기</button></div>`
     : `<div class="tabs"><button class="${App.rmode === 'sim' ? 'on' : ''}" data-a="rmode" data-v="sim">🖥 컴퓨터로 던지기</button><button class="${App.rmode === 'man' ? 'on' : ''}" data-a="rmode" data-v="man">✍️ 직접 던진 결과 입력</button></div>
@@ -995,12 +1040,16 @@ function rollHTML(r) {
         ? `<div class="row"><button class="btn big" data-a="roll1" ${App.rolling || App.auto ? 'disabled' : ''}>🎲 한 번 던지기</button>
             ${left > 1 ? `<button class="btn" data-a="rollauto" ${App.rolling && !App.auto ? 'disabled' : ''}>${App.auto ? '⏸ 멈추기' : '▶ 하나씩 자동으로'}</button>
             <button class="btn ghost" data-a="rollall" ${App.rolling || App.auto ? 'disabled' : ''}>⏩ 남은 ${left}번 한 번에</button>` : ''}</div>`
+        : isCoinK(r.kind)
+        ? `<div><p class="muted" style="margin-bottom:.4em">교실에서 던진 동전의 면을 ${r.d > 1 ? '동전마다 ' : ''}눌러 주세요. ${res.length + 1}번째 결과로 들어가요.</p>
+            ${Array.from({ length: r.d }, (_, j) => `<div class="manrow"><span class="c${DCOL[j]}">동전 ${DCOL[j]}</span><div class="man">${[1, 0].map(v => `<button class="mf ${App.manF[j] === v ? 'on' : ''}" data-a="manf" data-j="${j}" data-v="${v}" aria-label="${VL('side', v)}">${coinSVG(v)}</button>`).join('')}</div></div>`).join('')}
+            ${r.d > 1 && App.manF.some(x => x != null) ? `<p class="manpre">고른 면: ${Array.from({ length: r.d }, (_, j) => (App.manF[j] == null ? '?' : VL('side', App.manF[j]))).join(', ')} <button class="toggle" data-a="manclear">다시 고르기</button></p>` : ''}</div>`
         : `<div><p class="muted" style="margin-bottom:.4em">교실에서 던진 주사위의 눈을 ${r.d > 1 ? '주사위마다 ' : ''}눌러 주세요. ${res.length + 1}번째 결과로 들어가요.</p>
             ${Array.from({ length: r.d }, (_, j) => `<div class="manrow"><span class="c${DCOL[j]}">주사위 ${DCOL[j]}</span><div class="man">${[1, 2, 3, 4, 5, 6].map(v => `<button class="mf ${App.manF[j] === v ? 'on' : ''}" data-a="manf" data-j="${j}" data-v="${v}" aria-label="${v}">${dieSVG(v, DCOL[j])}</button>`).join('')}</div></div>`).join('')}
             ${r.d > 1 && App.manF.some(x => x) ? `<p class="manpre">고른 눈: ${Array.from({ length: r.d }, (_, j) => App.manF[j] || '?').join(r.kind === 'sum' ? ' + ' : r.kind === 'prod' ? ' × ' : ', ')} <button class="toggle" data-a="manclear">다시 고르기</button></p>` : ''}</div>`}
       ${res.length ? '<div class="row"><button class="toggle" data-a="dellast">↩ 마지막 결과 지우기</button></div>' : ''}`;
   return `${qTitleHTML(r)}
-    <div class="stage-wrap"><div id="stage" class="stage" data-k="${r.k}-${r.d}" data-d="${r.d}"></div>
+    <div class="stage-wrap"><div id="stage" class="stage" data-k="${r.k}-${r.d}-${r.kind}" data-d="${r.d}" data-coin="${isCoinK(r.kind) ? 1 : ''}"></div>
       <div class="readout" id="readout">${read}${sub}</div></div>
     <div class="ctrl" style="margin:1em 0">${ctrl}</div>
     ${stripHTML(r)}
@@ -1009,21 +1058,21 @@ function rollHTML(r) {
 }
 // 나온 결과 막대그래프 (나올 수 있는 값만: 합이면 2~12). 가장 많이 나온 값은 초록
 function resChartHTML(r, title) {
-  const res = resVals(r); const vals = possible(r.d, r.kind); const md = res.length ? modesOf(res) : [];
-  return `<div class="ch"><h4><span>${title || '📊 실제로 나온 결과'}</span><small>${res.length}${r.n > 1 ? ' / ' + r.n : ''}번${md.length ? ` · 가장 많이 <b style="color:var(--ok)">${md.join(', ')}</b>` : ''}</small></h4>
-    ${barsHTML(vals, countOf(res), { cls: 'res', hot: md })}</div>`;
+  const cnt = cntR(r); const dn = doneR(r); const vals = possible(r.d, r.kind); const md = dn ? modesC(cnt) : [];
+  return `<div class="ch"><h4><span>${title || '📊 실제로 나온 결과'}</span><small>${fmtN(dn)}${r.n > 1 ? ' / ' + fmtN(r.n) : ''}번${md.length ? ` · 가장 많이 <b style="color:var(--ok)">${md.map(v => VL(r.kind, v)).join(', ')}</b>` : ''}</small></h4>
+    ${barsHTML(vals, cnt, { cls: 'res', hot: md })}</div>`;
 }
 function bigRollHTML(r) {
-  const res = arr(r.res); const left = r.n - res.length; const g = guessesOf(r.k);
+  const dn = doneR(r); const left = r.n - dn; const g = guessesOf(r.k);
   const pick = {}; Object.values(g).forEach(a => { const v = arr(a)[0]; if (v != null) pick[v] = (pick[v] || 0) + 1; });
   return `${qTitleHTML(r)}
-    <div class="stage-wrap"><div id="stage" class="stage" data-k="${r.k}-${r.d}" data-d="${r.d}"></div>
-      <div class="readout">${App.rolling || res.length ? `${res.length}<small>${r.n}번 중 ${res.length}번 던졌어요</small>` : `<small>제출 마감! ${r.n}번을 한꺼번에 던져요</small>`}</div></div>
+    <div class="stage-wrap"><div id="stage" class="stage" data-k="${r.k}-${r.d}-${r.kind}" data-d="${r.d}" data-coin="${isCoinK(r.kind) ? 1 : ''}"></div>
+      <div class="readout">${App.rolling || dn ? `${dn.toLocaleString('ko-KR')}<small>${fmtN(r.n)}번 중 ${dn.toLocaleString('ko-KR')}번 던졌어요</small>` : `<small>제출 마감! ${fmtN(r.n)}번을 한꺼번에 던져요</small>`}</div></div>
     <div class="row" style="margin:1em 0">${left > 0
-      ? `<button class="btn big" data-a="rollbig" ${App.rolling ? 'disabled' : ''}>🎲 ${r.n}번 던지기</button>`
+      ? `<button class="btn big" data-a="rollbig" ${App.rolling ? 'disabled' : ''}>${isCoinK(r.kind) ? '🪙' : '🎲'} ${fmtN(r.n)}번 던지기</button>`
       : '<button class="btn big" data-a="score">✅ 채점하기</button>'}</div>
     <div class="two-ch" style="margin-top:0">${resChartHTML(r)}
-      <div class="ch"><h4><span>📊 학생들의 예상</span><small>제출 ${Object.keys(g).length}명</small></h4>${barsHTML(choices(r.d, r.kind), pick, { cls: 'pick', hot: left <= 0 ? modesOf(resVals(r)) : null })}</div></div>`;
+      <div class="ch"><h4><span>📊 학생들의 예상</span><small>제출 ${Object.keys(g).length}명</small></h4>${barsHTML(choices(r.d, r.kind), pick, { cls: 'pick', hot: left <= 0 ? modesR(r) : null })}</div></div>`;
 }
 // 결과 칸: 몇 번째 결과인지, 그 칸을 맞힌 친구 수
 function stripHTML(r) {
@@ -1032,7 +1081,7 @@ function stripHTML(r) {
     const x = res[i];
     if (!x) return `<div class="rb pend ${i === res.length ? 'next' : ''}"><i>${i + 1}</i><b>?</b></div>`;
     const hit = Object.keys(g).filter(id => arr(g[id])[i] === x.v).length;
-    return `<div class="rb on"><i>${i + 1}</i><b>${x.v}</b>${x.f && r.d > 1 ? `<div class="mini-d">${x.f.map((v, j) => dieSVG(v, DCOL[j])).join('')}</div>` : ''}<small>${hit ? `🎯 ${hit}명` : '&nbsp;'}</small></div>`;
+    return `<div class="rb on"><i>${i + 1}</i><b>${VL(r.kind, x.v)}</b>${x.f && r.d > 1 ? `<div class="mini-d">${x.f.map((v, j) => faceIcon(r.kind, v, j)).join('')}</div>` : ''}<small>${hit ? `🎯 ${hit}명` : '&nbsp;'}</small></div>`;
   });
   return `<div class="strip n${r.n}">${cells.join('')}</div>`;
 }
@@ -1045,10 +1094,10 @@ function doneHTML(r) {
   const tops = best > 0 ? Object.keys(hits).filter(id => hits[id] === best && S.players && S.players[id]) : [];
   const subN = Object.keys(g).length;
   const body = isBig(r)
-    ? `${resChartHTML(r, `📊 ${r.n}번 던진 결과`)}
-       <div class="ch" style="margin-top:1em"><h4><span>📊 학생들이 예상한 '가장 많이 나올 숫자'</span><small>제출 ${subN}명 · 초록 = 실제로 가장 많이 나온 값</small></h4>${barsHTML(vals, pick, { cls: 'pick', hot: modesOf(res) })}</div>`
+    ? `${resChartHTML(r, `📊 ${fmtN(r.n)}번 던진 결과`)}
+       <div class="ch" style="margin-top:1em"><h4><span>📊 학생들이 예상한 '가장 많이 나올 ${valWord(r.kind)}'</span><small>제출 ${subN}명 · 초록 = 실제로 가장 많이 나온 값</small></h4>${barsHTML(vals, pick, { cls: 'pick', hot: modesR(r) })}</div>`
     : r.n === 1
-    ? `<div class="big-res"><span>결과</span><b>${res[0]}</b><span>→ 맞힌 친구 <b style="font-size:1.6em;color:var(--ink)">${tops.length}</b>명 / 제출 ${subN}명</span></div>
+    ? `<div class="big-res"><span>결과</span><b>${VL(r.kind, res[0])}</b><span>→ 맞힌 친구 <b style="font-size:1.6em;color:var(--ink)">${tops.length}</b>명 / 제출 ${subN}명</span></div>
        ${slotChartsHTML(r)}`
     : `${stripHTML(r)}
        <div style="margin-top:1em">${resChartHTML(r)}</div>
@@ -1110,9 +1159,9 @@ function renderOverlay(force) {
 function stuHTML(id) {
   const p = P(id); const my = ranking().find(x => x.id === id);
   const rows = histList().map(h => {
-    const g = arr(guessesOf(h.k)[id]); const res = arr(h.res); const hits = (h.hits && h.hits[id]) || 0;
-    const cells = !g.length ? '<span class="muted">제출 안 함</span>' : isBig(h) ? (() => { const md = modesOf(res); return `<div class="sc ${md.includes(g[0]) ? 'hit' : 'miss'}"><b>${g[0]}</b><small>${md.includes(g[0]) ? '🎯 맞음' : '최다 ' + md.join(',')}</small></div>`; })() : res.map((v, i) => `<div class="sc ${g[i] === v ? 'hit' : 'miss'}"><b>${g[i]}</b><small>${g[i] === v ? '🎯 맞음' : '결과 ' + v}</small></div>`).join('');
-    return `<div class="srow"><div class="sh"><b>${h.k}라운드</b><span>${esc(cfgTitle(h))}</span>${g.length ? `<span class="ok">${isBig(h) ? (hits ? '최다 숫자 맞힘' : '못 맞힘') : `${h.n}개 중 ${hits}개 맞힘`} · +${hits * h.coin}</span>` : ''}</div><div class="scells">${cells}</div></div>`;
+    const g = arr(guessesOf(h.k)[id]); const res = arr(h.res); const hits = (h.hits && h.hits[id]) || 0; const L = v => VL(h.kind, v);
+    const cells = !g.length ? '<span class="muted">제출 안 함</span>' : isBig(h) ? (() => { const md = modesC(cntR(h)); return `<div class="sc ${md.includes(g[0]) ? 'hit' : 'miss'}"><b>${L(g[0])}</b><small>${md.includes(g[0]) ? '🎯 맞음' : '최다 ' + md.map(L).join(',')}</small></div>`; })() : res.map((v, i) => `<div class="sc ${g[i] === v ? 'hit' : 'miss'}"><b>${L(g[i])}</b><small>${g[i] === v ? '🎯 맞음' : '결과 ' + L(v)}</small></div>`).join('');
+    return `<div class="srow"><div class="sh"><b>${h.k}라운드</b><span>${esc(cfgTitle(h))}</span>${g.length ? `<span class="ok">${isBig(h) ? (hits ? `최다 ${valWord(h.kind)} 맞힘` : '못 맞힘') : `${h.n}개 중 ${hits}개 맞힘`} · +${hits * h.coin}</span>` : ''}</div><div class="scells">${cells}</div></div>`;
   }).join('');
   return `<div class="ov-top"><h2>${esc(p.name || '')} <small class="muted" style="font-family:var(--fb);font-size:.5em">${my ? my.rank + '등 · ' : ''}코인 ${p.coins || 0}개 · 큰 숫자 = 예상, 아래 = 결과</small></h2><button data-a="ovclose">닫기</button></div>
     ${rows || '<p class="muted">아직 끝난 라운드가 없어요.</p>'}`;
@@ -1163,8 +1212,21 @@ const ORIENT = { 1: [0, 0], 6: [0, 180], 3: [0, -90], 4: [0, 90], 2: [-90, 0], 5
 function buildStage(ph) {
   const d = +ph.dataset.d || 1; const r = S.round;
   const lastF = r && arr(r.res).map(x => x.f).filter(Boolean).slice(-1)[0];
-  const start = lastF || [6, 5, 4];
   const wrap = document.createElement('div'); wrap.className = 'dice';
+  if (ph.dataset.coin) {   // 동전: 앞(금색)·뒤(은색) 두 면짜리 원판
+    const start = lastF || [1, 0, 1];
+    for (let i = 0; i < d; i++) {
+      const col = document.createElement('div'); col.className = 'dcol';
+      const c = document.createElement('div'); c.className = 'die coin3d';
+      c.innerHTML = '<div class="cface heads">앞</div><div class="cface tails">뒤</div>';
+      c._coin = true; c._spin = 0; setDie(c, start[i] == null ? 1 : start[i], false);
+      col.appendChild(c);
+      if (d > 1) { const lb = document.createElement('span'); lb.textContent = DCOL[i]; col.appendChild(lb); }
+      wrap.appendChild(col);
+    }
+    ph.appendChild(wrap); return;
+  }
+  const start = lastF || [6, 5, 4];
   for (let i = 0; i < d; i++) {
     const col = document.createElement('div'); col.className = 'dcol';
     const die = document.createElement('div'); die.className = 'die c' + DCOL[i];
@@ -1182,6 +1244,7 @@ function buildStage(ph) {
 }
 function setDie(el, v, spin) {
   if (spin) el._spin = (el._spin || 0) + 2;
+  if (el._coin) { const e = 360 * (el._spin || 0); el.style.transform = `rotateX(${e}deg) rotateY(${v ? 0 : 180}deg)`; return; }
   const [rx, ry] = ORIENT[v]; const e = 360 * (el._spin || 0);
   el.style.transform = `rotateX(${rx + e}deg) rotateY(${ry + e}deg) rotateZ(0deg)`;
 }
@@ -1194,6 +1257,7 @@ async function tumbleTo(f, ms) {
   const end = Date.now() + ms - 400;
   while (Date.now() < end) {
     dice.forEach(el => { el._spin = (el._spin || 0) + 1; const e = 360 * el._spin;
+      if (el._coin) { el.style.transform = `translateY(${-30 - Math.random() * 40}%) rotateX(${e + Math.random() * 180}deg)`; return; }
       el.style.transform = `rotateX(${e + Math.random() * 360}deg) rotateY(${e + Math.random() * 360}deg) rotateZ(${Math.random() * 180}deg)`; });
     await sleep(140);
   }
@@ -1207,7 +1271,7 @@ async function openRound() {
   if (!App.active) return;
   const s = App.setup; const k = (S.meta.roundNo || 0) + 1;
   App.rmode = App.rmode || 'sim'; App.manVal = ''; App.manF = []; App.cum = false;
-  await DB.update(roomPath(), { 'meta/roundNo': k, 'meta/phase': 'play', round: { k, d: s.d, kind: s.kind, n: s.n, coin: s.coin, state: 'open', at: DB.now() } });
+  await DB.update(roomPath(), { 'meta/roundNo': k, 'meta/phase': 'play', round: { k, d: s.d, kind: s.kind, n: s.n, coin: s.coin, state: 'open', at: DB.now(), ...(s.n >= 100 ? { cnt: {}, done: 0 } : {}) } });
 }
 async function pushResults(list) {
   const r = S.round; if (!r || r.state === 'done' || !App.active) return;
@@ -1218,14 +1282,15 @@ async function pushResults(list) {
 }
 async function scoreRound() {
   const r = S.round; if (!r || !App.active || r.state === 'done') return;
-  const res = resVals(r); if (res.length < r.n) return;
+  const res = isBig(r) ? [] : resVals(r); if (doneR(r) < r.n) return;
   const G = guessesOf(r.k); const hits = {}; const up = {};
   for (const pid in G) {
     if (!S.players || !S.players[pid]) continue;
     const h = scoreOf(r, G[pid], res); hits[pid] = h;
     if (h) up[`players/${pid}/coins`] = (P(pid).coins || 0) + h * r.coin;
   }
-  up[`hist/${r.k}`] = { k: r.k, d: r.d, kind: r.kind, n: r.n, coin: r.coin, res, hits, at: DB.now() };
+  up[`hist/${r.k}`] = isBig(r) ? { k: r.k, d: r.d, kind: r.kind, n: r.n, coin: r.coin, cnt: r.cnt || {}, done: doneR(r), hits, at: DB.now() }
+    : { k: r.k, d: r.d, kind: r.kind, n: r.n, coin: r.coin, res, hits, at: DB.now() };
   up['round/state'] = 'done';
   await DB.update(roomPath(), up);
 }
@@ -1242,7 +1307,7 @@ async function rollOne() {
   const r = S.round; if (!r || App.rolling || r.state === 'done') return;
   if (r.n - arr(r.res).length <= 0) return;
   App.rolling = true; rerender(); DB.update(roomPath('round'), { rolling: true });
-  const f = rollFaces(r.d); await tumbleTo(f, 900);
+  const f = rollFaces(r.d, r.kind); await tumbleTo(f, 900);
   App.rolling = false;
   await pushResults([{ v: calc(r.kind, f), f }]);
   rerender();
@@ -1250,7 +1315,7 @@ async function rollOne() {
 async function rollAll() {
   const r = S.round; if (!r || App.rolling) return;
   const left = r.n - arr(r.res).length; if (left <= 0) return;
-  const list = Array.from({ length: left }, () => { const f = rollFaces(r.d); return { v: calc(r.kind, f), f }; });
+  const list = Array.from({ length: left }, () => { const f = rollFaces(r.d, r.kind); return { v: calc(r.kind, f), f }; });
   App.rolling = true; rerender(); DB.update(roomPath('round'), { rolling: true });
   await tumbleTo(list[list.length - 1].f, 900);
   App.rolling = false;
@@ -1258,16 +1323,20 @@ async function rollAll() {
   rerender();
 }
 async function rollBig() {
-  const r = S.round; if (!r || App.rolling) return;
-  const left = r.n - arr(r.res).length; if (left <= 0) return;
-  const list = Array.from({ length: left }, () => ({ v: calc(r.kind, rollFaces(r.d)) }));
+  const r = S.round; if (!r || App.rolling || r.state === 'done') return;
+  let done = doneR(r); const left = r.n - done; if (left <= 0) return;
+  const cnt = cntR(r);
   App.rolling = true; rerender(); DB.update(roomPath('round'), { rolling: true });
-  await tumbleTo(rollFaces(r.d), 700);
-  const per = Math.ceil(list.length / 10);   // 10번에 나눠 쌓이며 막대가 자라는 모습
-  for (let i = 0; i < list.length; i += per) {
-    const part = list.slice(i, i + per);
-    if (i + per < list.length) { await DB.update(roomPath('round'), { res: arr(S.round.res).concat(part) }); rerender(); await sleep(160); }
-    else { App.rolling = false; await pushResults(part); }
+  await tumbleTo(rollFaces(r.d, r.kind), 700);
+  // 10번에 나눠 던지며 막대가 자라는 모습 (100만 번도 횟수만 세므로 금방 끝남)
+  const per = Math.ceil(left / 10);
+  for (let i = 0; i < left; i += per) {
+    const m = Math.min(per, left - i);
+    for (let j = 0; j < m; j++) { const v = calc(r.kind, rollFaces(r.d, r.kind)); cnt[v] = (cnt[v] || 0) + 1; }
+    done += m;
+    const last = done >= r.n;
+    await DB.update(roomPath('round'), { cnt: encC(cnt), done, ...(last ? { state: 'closed', rolling: null } : {}) });
+    if (last) { App.rolling = false; await scoreRound(); } else { rerender(); await sleep(160); }
   }
   rerender();
 }
@@ -1339,28 +1408,29 @@ function renderStudent() {
   $('#app').innerHTML = `<div class="S">${head}${body}</div>`;
 }
 function qCardHTML(r, sub) {
-  if (isBig(r)) return `<div class="card S-q"><div class="dz">${diceIcons(r.d)}</div><h2>${r.n}번 던지면<br>가장 많이 나올 ${josa(KIND_NAME[r.kind], '는', '은')}?</h2><p>${sub}</p></div>`;
-  return `<div class="card S-q"><div class="dz">${diceIcons(r.d)}</div><h2>${josa(kindLabel(r.d, r.kind), '를', '을')} 맞혀라!</h2><p>${sub}</p></div>`;
+  if (isBig(r)) return `<div class="card S-q"><div class="dz">${toolIcons(r.d, r.kind)}</div><h2>${fmtN(r.n)}번 던지면<br>가장 많이 나올 ${josa(KIND_NAME[r.kind], '는', '은')}?</h2><p>${sub}</p></div>`;
+  return `<div class="card S-q"><div class="dz">${toolIcons(r.d, r.kind)}</div><h2>${josa(kindLabel(r.d, r.kind), '를', '을')} 맞혀라!</h2><p>${sub}</p></div>`;
 }
 function pickHTML(r) {
   ensureDraft(r);
   const vals = choices(r.d, r.kind); const dr = App.draft; const n = slotsN(r);
   const full = dr.every(v => v != null); const sent = arr(S.myGuess);
   const same = sent.length === n && sent.every((v, i) => v === dr[i]);
-  const slots = dr.map((v, i) => `<button class="slot ${v != null ? 'fill' : ''} ${i === App.cur && n > 1 ? 'cur' : ''}" data-a="slot" data-v="${i}">${n > 1 ? `<i>${i + 1}</i>` : ''}<b>${v != null ? v : ''}</b></button>`).join('');
+  const slots = dr.map((v, i) => `<button class="slot ${v != null ? 'fill' : ''} ${i === App.cur && n > 1 ? 'cur' : ''}" data-a="slot" data-v="${i}">${n > 1 ? `<i>${i + 1}</i>` : ''}<b>${v != null ? VL(r.kind, v) : ''}</b></button>`).join('');
   const curV = dr[App.cur];
   const empties = dr.filter(v => v == null).length;
   const tools = n > 1 ? `<div class="tools">
-      ${App.lastPick != null && empties ? `<button data-a="fillrest">빈칸 모두 ${numRo(App.lastPick)}</button>` : ''}
-      ${App.lastPick != null ? `<button data-a="fillall">${n}칸 전부 ${numRo(App.lastPick)}</button>` : ''}
+      ${App.lastPick != null && empties ? `<button data-a="fillrest">빈칸 모두 ${roLab(r.kind, App.lastPick)}</button>` : ''}
+      ${App.lastPick != null ? `<button data-a="fillall">${n}칸 전부 ${roLab(r.kind, App.lastPick)}</button>` : ''}
       ${dr.some(v => v != null) ? '<button data-a="clear">모두 지우기</button>' : ''}</div>` : '';
   const st = sent.length && same ? `<p class="status ok">✅ 제출 완료! 마감 전까지는 바꿀 수 있어요.</p>`
     : sent.length ? `<p class="status warn">바꾼 내용을 다시 제출해 주세요.</p>`
     : !full && n > 1 ? `<p class="status muted">${n}칸을 모두 채워야 제출할 수 있어요. (${n - empties}/${n})</p>` : '';
-  return `${qCardHTML(r, isBig(r) ? `${esc(kindLabel(r.d, r.kind))} 중에서 ${r.n}번 던졌을 때 <b>가장 많이 나올 것 같은 숫자</b> 하나를 골라요. 맞히면 코인 ${r.coin}개!` : n > 1 ? `주사위를 <b>${n}번</b> 던져요. 칸마다 나올 것 같은 숫자를 골라요.<br>칸의 숫자가 그 번째 결과와 같으면 코인 ${r.coin}개!` : `나올 것 같은 숫자 하나를 골라요. 맞히면 코인 ${r.coin}개!`)}
+  const W = valWord(r.kind);
+  return `${qCardHTML(r, isBig(r) ? `${esc(kindLabel(r.d, r.kind))} 중에서 ${fmtN(r.n)}번 던졌을 때 <b>가장 많이 나올 것 같은 ${W}</b> 하나를 골라요. 맞히면 코인 ${r.coin}개!` : n > 1 ? `${TOOL(r.kind)}를 <b>${n}번</b> 던져요. 칸마다 나올 것 같은 ${W}를 골라요.<br>칸의 ${W}가 그 번째 결과와 같으면 코인 ${r.coin}개!` : `나올 것 같은 ${W} 하나를 골라요. 맞히면 코인 ${r.coin}개!`)}
     <div class="card">
       ${n > 1 ? `<div class="slots n${n}">${slots}</div>` : `<div class="slots n1">${slots}</div>`}
-      <div class="vals ${vals.length <= 6 ? 'v6' : vals.length <= 12 ? 'v12' : vals.length > 24 ? 'many' : ''}">${vals.map(v => `<button class="${curV === v ? 'on' : ''}" data-a="pick" data-v="${v}">${v}</button>`).join('')}</div>
+      <div class="vals ${vals.length <= 2 ? 'v2' : vals.length <= 6 ? 'v6' : vals.length <= 12 ? 'v12' : vals.length > 24 ? 'many' : ''}">${vals.map(v => `<button class="${curV === v ? 'on' : ''}" data-a="pick" data-v="${v}">${VL(r.kind, v)}</button>`).join('')}</div>
       ${tools}
       <button class="btn big" style="margin-top:12px" data-a="submit" ${full && !same ? '' : 'disabled'}>${sent.length ? (same ? '제출했어요' : '다시 제출하기') : '제출하기'}</button>
       ${st}
@@ -1372,33 +1442,34 @@ function resultHTML(r) {
   const done = r.state === 'done';
   if (!g.length) {
     return `${qCardHTML(r, done ? '이번 라운드 결과예요.' : '제출이 마감됐어요. 결과를 기다려요!')}
-      ${r.rolling ? '<div class="rollmsg"><span>🎲</span> 주사위가 굴러가요… <span>🎲</span></div>' : ''}
+      ${r.rolling ? rollMsg(r) : ''}
       <div class="card big-msg" style="padding:18px"><p>이번 라운드는 제출하지 못했어요 😢<br>다음 라운드에 꼭 참여해요!</p></div>
-      ${res.length ? `<div class="card"><div class="slots n${n}">${res.map((x, i) => `<div class="slot fill">${n > 1 ? `<i>${i + 1}</i>` : ''}<b>${x.v}</b></div>`).join('')}</div></div>` : ''}`;
+      ${res.length ? `<div class="card"><div class="slots n${n}">${res.map((x, i) => `<div class="slot fill">${n > 1 ? `<i>${i + 1}</i>` : ''}<b>${VL(r.kind, x.v)}</b></div>`).join('')}</div></div>` : ''}`;
   }
   const hits = res.filter((x, i) => g[i] === x.v).length;
   const slots = Array.from({ length: n }, (_, i) => {
     const x = res[i]; const cls = !x ? 'wait' : g[i] === x.v ? 'hit' : 'miss';
-    return `<div class="slot ${cls}">${n > 1 ? `<i>${i + 1}</i>` : ''}<b>${g[i]}</b><span class="res">${!x ? '결과 ?' : (g[i] === x.v ? '🎯 ' : '결과 ') + x.v}</span>
-      ${x && x.f && r.d > 1 ? `<div class="mini-d">${x.f.map((v, j) => dieSVG(v, DCOL[j])).join('')}</div>` : ''}</div>`;
+    return `<div class="slot ${cls}">${n > 1 ? `<i>${i + 1}</i>` : ''}<b>${VL(r.kind, g[i])}</b><span class="res">${!x ? '결과 ?' : (g[i] === x.v ? '🎯 ' : '결과 ') + VL(r.kind, x.v)}</span>
+      ${x && x.f && r.d > 1 ? `<div class="mini-d">${x.f.map((v, j) => faceIcon(r.kind, v, j)).join('')}</div>` : ''}</div>`;
   }).join('');
   const top = done
     ? `<div class="card big-msg" style="padding:16px">${hits ? `<div class="em">🎉</div><div class="gain">+${hits * r.coin} <span class="coin-i">c</span></div><p>${n > 1 ? `${n}번 중 ${hits}번 맞혔어요!` : '맞혔어요!'}</p>` : `<div class="em">🎲</div><h2>아쉬워요!</h2><p>${n > 1 ? `${n}번 중 하나도 못 맞혔어요.` : '이번엔 빗나갔어요.'}</p>`}
        <p class="muted" style="margin-top:6px">다음 라운드를 기다려요.</p></div>`
-    : `<div class="hitsum">${res.length ? `지금까지 <b>${hits}</b>개 맞힘 (${res.length}/${n})` : '마감! 선생님이 주사위를 던져요 🎲'}</div>`;
+    : `<div class="hitsum">${res.length ? `지금까지 <b>${hits}</b>개 맞힘 (${res.length}/${n})` : `마감! 선생님이 ${TOOL(r.kind)}를 던져요 ${isCoinK(r.kind) ? '🪙' : '🎲'}`}</div>`;
   return `${qCardHTML(r, n > 1 ? `${n}번 던진 결과와 내 예상을 비교해요` : '내 예상과 결과를 비교해요')}
-    ${r.rolling ? '<div class="rollmsg"><span>🎲</span> 주사위가 굴러가요… <span>🎲</span></div>' : ''}
+    ${r.rolling ? rollMsg(r) : ''}
     ${top}<div class="card"><div class="slots n${n}">${slots}</div></div>`;
 }
+function rollMsg(r) { const e = isCoinK(r.kind) ? '🪙' : '🎲'; return `<div class="rollmsg"><span>${e}</span> ${isCoinK(r.kind) ? '동전이 빙글빙글 돌아요…' : '주사위가 굴러가요…'} <span>${e}</span></div>`; }
 function bigResultHTML(r) {
-  const g = arr(S.myGuess)[0]; const res = resVals(r); const done = r.state === 'done';
-  const md = done ? modesOf(res) : []; const hit = done && md.includes(g);
-  const top = !done ? `<div class="hitsum">${res.length ? `${r.n}번 중 ${res.length}번 던졌어요` : '마감! 선생님이 주사위를 던져요 🎲'}</div>`
+  const g = arr(S.myGuess)[0]; const cnt = cntR(r); const dn = doneR(r); const done = r.state === 'done';
+  const md = done ? modesC(cnt) : []; const hit = done && md.includes(g); const W = valWord(r.kind); const L = v => VL(r.kind, v);
+  const top = !done ? `<div class="hitsum">${dn ? `${fmtN(r.n)}번 중 ${dn.toLocaleString('ko-KR')}번 던졌어요` : `마감! 선생님이 ${TOOL(r.kind)}를 던져요 ${isCoinK(r.kind) ? '🪙' : '🎲'}`}</div>`
     : g == null ? '<div class="card big-msg" style="padding:16px"><p>이번 라운드는 제출하지 못했어요 😢</p></div>'
-    : `<div class="card big-msg" style="padding:16px">${hit ? `<div class="em">🎉</div><div class="gain">+${r.coin} <span class="coin-i">c</span></div><p>가장 많이 나온 숫자 ${md.join(', ')}! 맞혔어요!</p>` : `<div class="em">🎲</div><h2>아쉬워요!</h2><p>가장 많이 나온 숫자는 ${md.join(', ')}였어요.</p>`}</div>`;
-  return `${qCardHTML(r, g != null ? `내 예상: <b style="font-size:1.4em;color:var(--ink)">${g}</b>` : '제출하지 못했어요')}
-    ${r.rolling ? '<div class="rollmsg"><span>🎲</span> 주사위가 굴러가요… <span>🎲</span></div>' : ''}
-    ${top}${res.length ? `<div class="card">${barsHTML(possible(r.d, r.kind), countOf(res), { cls: 'res', hot: done ? md : g })}</div>` : ''}`;
+    : `<div class="card big-msg" style="padding:16px">${hit ? `<div class="em">🎉</div><div class="gain">+${r.coin} <span class="coin-i">c</span></div><p>가장 많이 나온 ${W} ${md.map(L).join(', ')}! 맞혔어요!</p>` : `<div class="em">${isCoinK(r.kind) ? '🪙' : '🎲'}</div><h2>아쉬워요!</h2><p>가장 많이 나온 ${W}는 ${md.map(L).join(', ')}였어요.</p>`}</div>`;
+  return `${qCardHTML(r, g != null ? `내 예상: <b style="font-size:1.4em;color:var(--ink)">${L(g)}</b>` : '제출하지 못했어요')}
+    ${r.rolling ? rollMsg(r) : ''}
+    ${top}${dn ? `<div class="card">${barsHTML(possible(r.d, r.kind), cnt, { cls: 'res', hot: done ? md : g })}</div>` : ''}`;
 }
 function studentPick(v) {
   const r = S.round; if (!r || r.state !== 'open') return;
@@ -1468,8 +1539,9 @@ async function onAction(a, el) {
   if (a === 'resumegame') return DB.update(roomPath('meta'), { phase: 'play' });
   // 라운드 설정
   const s = App.setup;
-  if (a === 'preset') { const p = PRESETS[+v]; Object.assign(s, { d: p.d, kind: p.kind, n: p.n }); saveSetup(); return rerender(); }
-  if (a === 'sd') { s.d = +v; if (s.d === 1) s.kind = 'face'; else if (s.kind === 'face') s.kind = 'sum'; saveSetup(); return rerender(); }
+  if (a === 'preset') { const p = PRESETS[+v]; Object.assign(s, { d: p.d, kind: p.kind, n: p.n, tool: isCoinK(p.kind) ? 'coin' : 'dice' }); saveSetup(); return rerender(); }
+  if (a === 'sd') { s.d = +v; if (s.tool === 'coin') s.kind = s.d === 1 ? 'side' : 'heads'; else if (s.d === 1) s.kind = 'face'; else if (s.kind === 'face') s.kind = 'sum'; saveSetup(); return rerender(); }
+  if (a === 'st') { s.tool = v; if (v === 'coin') s.kind = s.d === 1 ? 'side' : 'heads'; else s.kind = s.d === 1 ? 'face' : 'sum'; saveSetup(); return rerender(); }
   if (a === 'sk') { s.kind = v; saveSetup(); return rerender(); }
   if (a === 'sn') { s.n = +v; saveSetup(); return rerender(); }
   if (a === 'sc') { s.coin = +v; saveSetup(); return rerender(); }
@@ -1489,7 +1561,7 @@ async function onAction(a, el) {
   if (a === 'manf' && r && r.state === 'closed') {
     App.manF[+el.dataset.j] = +v;
     const f = Array.from({ length: r.d }, (_, j) => App.manF[j]);
-    if (f.every(x => x)) {   // 모든 주사위 눈을 골랐으면 결과로 넣고, 무대의 주사위도 그 눈으로 돌려 놓기
+    if (f.every(x => x != null)) {   // 모든 주사위 눈을 골랐으면 결과로 넣고, 무대의 주사위도 그 눈으로 돌려 놓기
       App.manF = [];
       document.querySelectorAll('#stage .die').forEach((d, i) => { d.classList.remove('tumbling'); d.classList.add('settle'); setDie(d, f[i], true); });
       return pushResults([{ v: calc(r.kind, f), f }]);
@@ -1518,7 +1590,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && App.mode === 'teacher' && App.ov) { App.ov = null; renderOverlay(); }
   // 선생님 화면: 스페이스바로 한 번 던지기
   if (e.code === 'Space' && App.mode === 'teacher' && App.active && !App.ov && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) {
-    const r = S.round; if (r && r.state === 'closed' && (App.rmode === 'sim' || isBig(r)) && r.n - arr(r.res).length > 0) { e.preventDefault(); isBig(r) ? rollBig() : rollOne(); }
+    const r = S.round; if (r && r.state === 'closed' && (App.rmode === 'sim' || isBig(r)) && r.n - doneR(r) > 0) { e.preventDefault(); isBig(r) ? rollBig() : rollOne(); }
   }
 });
 
